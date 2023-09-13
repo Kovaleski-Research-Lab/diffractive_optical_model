@@ -1,0 +1,63 @@
+#--------------------------------
+#       General Params
+#--------------------------------
+seed: [True, 1337]
+train: True
+model_id: 'refactoring'
+which: 'MNIST'
+
+#--------------------------------
+#       All paths
+#--------------------------------
+path_root: '/home/mblgh6/Documents/diffactive_optic_simulator/'
+path_data: 'data/'
+path_results: 'results/'
+
+don:
+  sources:
+    0:
+      wavelength: 1550.e-9
+      distance: 100.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+  propagators:
+    0:
+      wavelength: 1550.e-9
+      distance : 250.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+    1:
+      wavelength: 1550.e-9
+      distance : 210.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+  modulators:
+    0:
+      Nxm: 1080
+      Nym: 1920
+      Lxm: 8.64e-3
+      Lym: 15.36e-3
+      wavelength: 1550.e-9
+      focal_length: 'none'
+      modulator_type: 'none' # none, phase_only, amplitude_only, complex
+      phase_initialization: 'random' # random, lens, uniform
+      amplitude_initialization: 'uniform' # random, uniform
+    1:
+      Nxm: 1080
+      Nym: 1920
+      Lxm: 8.64e-3
+      Lym: 15.36e-3
+      wavelength: 1550.e-9
+      focal_length: 150.e-3
+      modulator_type: 'none' # none, phase_only, amplitude_only, complex
+      phase_initialization: 'lens' # random, lens, uniform
+      amplitude_initialization: 'uniform' # random, uniform
