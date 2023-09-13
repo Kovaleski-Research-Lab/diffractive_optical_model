@@ -1,10 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from pytorch_lightning.core import datamodule
 import yaml
 import propagator
 import modulator
-import datamodule
 import source
 from IPython import embed; 
 
