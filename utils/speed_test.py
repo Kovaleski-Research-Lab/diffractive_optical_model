@@ -61,7 +61,15 @@ if __name__ == "__main__":
         pattern.save(filename)
         slm.send_scp(filename)
         slm.update(filename=slm_file_path, options=slm_options)
-        #image = Image.fromarray(camera.get_image())
+
+        image = camera.get_image()
+        image = image[206:765, 141:1136]
+        im.set_array(image)
+        im.set_clim(vmin=6000, vmax=6300)
+        ax.set_title("{}".format(counter))
+        plt.pause(0.5)
+        counter +=1
+
         #image.save('../results/image_{:04d}.png'.format(i))
 
     #    ##Send the pattern to the Holoeye

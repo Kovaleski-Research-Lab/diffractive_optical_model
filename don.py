@@ -56,14 +56,17 @@ class DON(LightningModule):
         don_params = params['don']
         num_propagators = len(don_params['propagators'])
         num_modulators = len(don_params['modulators'])
-        assert num_propagators -1 == num_modulators
-        
-        print(num_propagators)
-        print(num_modulators)
-        for i in range(0, num_propagators, 2):
-            self.layers.append(Propagator(don_params['propagators'][i]))
-            self.layers.append(Modulator(don_params['modulators'][i]))
-            self.layers.append(Propagator(don_params['propagators'][i+1]))
+        assert num_propagators == num_modulators
+
+        prop_params = don_params['propagators']
+        mod_params = don_params['modulators']
+        source_params = don_params['sources']
+        num_propagators = len(prop_params)
+        self.layers = []
+        self.layers.append(source.Source(source_params[0]))
+        for m,p in zip(mod_params, prop_params):
+            self.layers.append(modulator.Modulator(mod_params[m]))
+            self.layers.append(propagator.Propagator(prop_params[p]))
 
     #--------------------------------
     # Select: Objective Function
@@ -127,12 +130,14 @@ class DON(LightningModule):
     # Create: Forward Pass
     #--------------------------------
    
-    def forward(self, wavefront):
-        x = wavefront
-        for i,l in enumerate(self.layers):
-            x = l(x)
-        x = torch.rot90(x,2,[-2,-1])
-        return x
+    def forward(self):
+        u = None
+        for i,l in enumerate(layers):
+            if i == 0:
+                u = l.forward()
+            else:
+                u = l.forward(u)
+        return u
  
     #--------------------------------
     # Create: Shared Step Train/Valid
@@ -140,7 +145,7 @@ class DON(LightningModule):
       
     def shared_step(self, batch, batch_idx):
         sample,target = batch
-        output_wavefronts = self(sample)
+        output_wavefronts = self()
 
         #Get the amplitudes
         amplitudes = output_wavefronts.abs()
