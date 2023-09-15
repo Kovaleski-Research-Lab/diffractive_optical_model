@@ -85,7 +85,7 @@ class Modulator(pl.LightningModule):
     # Initialize: Amplitudes 
     #--------------------------------
 
-    def init_amplitude(self) -> torch.nn.Parameter | None:
+    def init_amplitude(self) -> torch.nn.Parameter:
         logging.debug("Modulator | setting amplitude initialization to torch.ones()")
         if self.amplitude_initialization == 'uniform':
             amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym))
@@ -93,14 +93,13 @@ class Modulator(pl.LightningModule):
             amplitude = torch.nn.Parameter(torch.rand(1,1,self.Nxm, self.Nym))
         else:
             amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym))
-
         return amplitude
 
     #--------------------------------
     # Initialize: Phases
     #--------------------------------
 
-    def init_phase(self) -> torch.nn.Parameter | None:
+    def init_phase(self) -> torch.nn.Parameter:
         phase = None
         if self.phase_initialization == "uniform":
             logging.debug("Modulator | setting phase initialization to torch.ones()")

@@ -124,8 +124,8 @@ class customDataset(Dataset):
     def __init__(self, data, transform):
         logging.debug("datamodule.py - Initializing customDataset")
         #self.samples, self.targets = data[0], data[1]
-        #shape = data[0].shape
-        #self.samples = torch.ones(shape)
+        shape = data[0].shape
+        self.samples = torch.ones(shape)
 
         if len(self.samples.shape) < 4:
             self.samples = torch.unsqueeze(self.samples, dim=1)

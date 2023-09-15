@@ -5,17 +5,21 @@
 import torch
 import logging
 import torchmetrics
+from IPython import embed
 from pytorch_lightning import LightningModule
 
 #--------------------------------
 # Import: Custom Python Libraries
 #--------------------------------
 import sys
-sys.path.append('../')
+sys.path.append('/home/mblgh6/Documents/research/deep_optics')
+sys.path.append('/home/mblgh6/Documents/research/diffractive_optic_simulator')
+sys.path.append('/home/mblgh6/Documents/research/optic_benchtop')
 
-from core.modulator import Modulator, Lens
-from core.propagator import Propagator
-from core.datamodule import * 
+import modulator
+import propagator
+import source
+
 from torchmetrics.functional import mean_squared_error as mse
 from torchmetrics.functional import peak_signal_noise_ratio as psnr
 from torchmetrics.functional import structural_similarity_index_measure as ssim
@@ -53,7 +57,7 @@ class DON(LightningModule):
 
     def create_layers(self):
         logging.debug("DON | creating layers")
-        don_params = params['don']
+        don_params = self.params['don']
         num_propagators = len(don_params['propagators'])
         num_modulators = len(don_params['modulators'])
         assert num_propagators == num_modulators
@@ -62,7 +66,6 @@ class DON(LightningModule):
         mod_params = don_params['modulators']
         source_params = don_params['sources']
         num_propagators = len(prop_params)
-        self.layers = []
         self.layers.append(source.Source(source_params[0]))
         for m,p in zip(mod_params, prop_params):
             self.layers.append(modulator.Modulator(mod_params[m]))
@@ -132,7 +135,7 @@ class DON(LightningModule):
    
     def forward(self):
         u = None
-        for i,l in enumerate(layers):
+        for i,l in enumerate(self.layers):
             if i == 0:
                 u = l.forward()
             else:
@@ -145,6 +148,7 @@ class DON(LightningModule):
       
     def shared_step(self, batch, batch_idx):
         sample,target = batch
+        self.layers[1].amplitude = torch.nn.Parameter(sample.abs())
         output_wavefronts = self()
 
         #Get the amplitudes
@@ -239,7 +243,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
     
-    params = yaml.load(open("../config.yaml"), Loader=yaml.FullLoader)
+    params = yaml.load(open("../deep_optics/config.yaml"), Loader=yaml.FullLoader)
 
     dm = datamodule.select_data(params)
     #Initialize the data module
