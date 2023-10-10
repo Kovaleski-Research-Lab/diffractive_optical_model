@@ -12,11 +12,12 @@ import pytorch_lightning as pl
 #--------------------------------
 
 class Propagator(pl.LightningModule):
-    def __init__(self, params):
+    def __init__(self, params, paths):
         super().__init__()
         logging.debug("propagator.py - Initializing Propagator")
 
         self.params = params.copy()
+        self.paths = paths.copy()
 
         # Load: Physical parameters
         self.Lxp = torch.tensor(self.params['Lxp'])   

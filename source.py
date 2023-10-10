@@ -14,8 +14,8 @@ import pytorch_lightning as pl
 import propagator
 
 class Source(propagator.Propagator):
-    def __init__(self, params):
-        super().__init__(params)
+    def __init__(self, params, paths):
+        super().__init__(params, paths)
         logging.debug("source.py | Initializing Source")
         self.params = params
         self.init_wavefront()

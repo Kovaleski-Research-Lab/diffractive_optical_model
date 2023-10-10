@@ -35,7 +35,8 @@ class DON(LightningModule):
         logging.debug("don.py - Initializing DON")
         # Copy parameters
         self.params = params.copy()
-        self.checkpoint_path = self.params['path_checkpoint_don']
+        self.paths = params['paths']
+        self.checkpoint_path = self.paths['path_checkpoint_don']
 
         # Create model layers
         self.layers = torch.nn.ModuleList()
@@ -66,10 +67,10 @@ class DON(LightningModule):
         mod_params = don_params['modulators']
         source_params = don_params['sources']
         num_propagators = len(prop_params)
-        self.layers.append(source.Source(source_params[0]))
+        self.layers.append(source.Source(source_params[0], self.paths))
         for m,p in zip(mod_params, prop_params):
-            self.layers.append(modulator.Modulator(mod_params[m]))
-            self.layers.append(propagator.Propagator(prop_params[p]))
+            self.layers.append(modulator.Modulator(mod_params[m], self.paths))
+            self.layers.append(propagator.Propagator(prop_params[p], self.paths))
 
     #--------------------------------
     # Select: Objective Function
@@ -80,15 +81,15 @@ class DON(LightningModule):
         if objective_function == "mse":
             self.similarity_metric = False
             self.objective_function = torchmetrics.functional.mean_squared_error
-            logging.debug("DON | setting objective function to {}".format(self.objective_function))
+            logging.debug("DON | setting objective function to {}".format(objective_function))
         elif objective_function == "psnr":
             self.similarity_metric = True
             self.objective_function = torchmetrics.functional.peak_signal_noise_ratio
-            logging.debug("DON | setting objective function to {}".format(self.objective_function))
+            logging.debug("DON | setting objective function to {}".format(objective_function))
         elif objective_function == "ssim":
             self.similarity_metric = True
             self.objective_function = torchmetrics.functional.structural_similarity_index_measure
-            logging.debug("DON | setting objective function to {}".format(self.objective_function))
+            logging.debug("DON | setting objective function to {}".format(objective_function))
         else:
             logging.error("Objective function : {} not supported".format(self.params['objective_function']))
             exit()
@@ -106,7 +107,7 @@ class DON(LightningModule):
         don_target = don_outputs[5]
         mse_vals = mse(normalized_images.detach(), don_target.detach())
         psnr_vals = psnr(normalized_images.detach(), don_target.detach())
-        ssim_vals = ssim(normalized_images.detach(), don_target.detach()).detach()
+        ssim_vals = ssim(normalized_images.detach(), don_target.detach()).detach() #type: ignore
 
         return {'mse' : mse_vals.cpu(), 'psnr' : psnr_vals.cpu(), 'ssim' : ssim_vals.cpu()}
 
@@ -140,6 +141,7 @@ class DON(LightningModule):
                 u = l.forward()
             else:
                 u = l.forward(u)
+        u = torch.rot90(u,2,[-2,-1])
         return u
  
     #--------------------------------
@@ -148,7 +150,10 @@ class DON(LightningModule):
       
     def shared_step(self, batch, batch_idx):
         sample,target = batch
-        self.layers[1].amplitude = torch.nn.Parameter(sample.abs())
+        slm_pattern = sample.abs()
+        slm_pattern = slm_pattern / torch.max(slm_pattern)
+        self.layers[1].amplitude = torch.nn.Parameter(slm_pattern)
+
         output_wavefronts = self()
 
         #Get the amplitudes
@@ -208,28 +213,6 @@ class DON(LightningModule):
        ouput, images, normalized_images, target = self.shared_step(batch, batch_idx)
        return {'output' : output,'images': images, 'normalized_images': normalized_images, 
                 'target': target, 'sample' : sample}
-
-    #--------------------------------
-    # Create: Test Step
-    #--------------------------------
-    
-    def test_step(self, batch, batch_idx):
-        sample, target = batch
-        don_output = self.shared_step(batch, batch_idx)
-        self.don_metrics.append(self.run_don_metrics(don_output))
-
-        return
-
-    def on_test_end(self):
-        #This is a little hacky, but it gets the model id...
-        model_id = self.all_paths['path_results_don'].split('/')[-2]
-        filename = 'testResults_{}.pt'.format(model_id)
-        save_dict = {'don' : self.don_metrics}
-        torch.save(save_dict, os.path.join(self.all_paths['path_root'],self.all_paths['path_results_don'],filename))
-        return
-
-
-
 
 if __name__ == "__main__":
 
