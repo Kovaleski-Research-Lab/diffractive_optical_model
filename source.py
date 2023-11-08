@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 #--------------------------------
 # Initialize: Propagator
 #--------------------------------
-import propagator
+from . import propagator
 
 class Source(propagator.Propagator):
     def __init__(self, params, paths):
