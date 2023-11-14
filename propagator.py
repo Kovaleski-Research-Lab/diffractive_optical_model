@@ -3,8 +3,8 @@
 #--------------------------------
 
 import torch
-import logging
 import torchvision
+from loguru import logger
 import pytorch_lightning as pl
 
 #--------------------------------
@@ -14,7 +14,7 @@ import pytorch_lightning as pl
 class Propagator(pl.LightningModule):
     def __init__(self, params, paths):
         super().__init__()
-        logging.debug("propagator.py - Initializing Propagator")
+        logger.debug("Initializing Propagator")
 
         self.params = params.copy()
         self.paths = paths.copy()
@@ -25,14 +25,14 @@ class Propagator(pl.LightningModule):
         self.Nxp = torch.tensor(self.params['Nxp'])
         self.Nyp = torch.tensor(self.params['Nyp'])
         self.distance = torch.tensor(params['distance'])
-        logging.debug("Propagator | setting distance to {}".format(self.distance))
+        logger.debug("Setting distance to {}".format(self.distance))
         self.wavelength = torch.tensor(self.params['wavelength'])
-        logging.debug("Propagator | setting wavelength to {}".format(self.wavelength))
+        logger.debug("Setting wavelength to {}".format(self.wavelength))
         self.wavenumber = 2 * torch.pi / self.wavelength 
 
         self.delta_x = self.Lxp / self.Nxp
         self.delta_y = self.Lyp / self.Nyp
-        logging.debug("Propagator | setting sampling pitch {}x{}".format(self.delta_x, self.delta_y))
+        logger.debug("Setting sampling pitch {}x{}".format(self.delta_x, self.delta_y))
 
         # Initialize: Center crop transform
         self.cc = torchvision.transforms.CenterCrop((int(self.Nxp), int(self.Nyp)))
@@ -40,12 +40,12 @@ class Propagator(pl.LightningModule):
         #Create: The propagator
         self.asm = None
         self.adaptive = self.params['adaptive']
-        logging.debug("Propagator | setting adaptive to {}".format(self.adaptive))
+        logger.debug("Setting adaptive to {}".format(self.adaptive))
 
         self.create_propagator()
  
     def create_propagator(self):
-        logging.debug("Propagator | creating propagation layer")
+        logger.debug("Creating propagation layer")
         padx = torch.div(self.Nxp, 2, rounding_mode='trunc')
         pady = torch.div(self.Nyp, 2, rounding_mode='trunc')
         self.padding = (pady,pady,padx,padx)    
@@ -59,7 +59,7 @@ class Propagator(pl.LightningModule):
 
 
     def update_propagator(self):
-        logging.debug("Propagator | updating propgator due to specified distance")
+        logger.debug("Updating propgator due to specified distance")
         if self.adaptive:
             if self.check_asm_distance():
                 self.asm = True
@@ -74,7 +74,7 @@ class Propagator(pl.LightningModule):
                 self.init_rsc_transfer_function()
 
     def check_asm_distance(self):
-        logging.debug("Propagator | checking ASM propagation criteria")
+        logger.debug("Checking ASM propagation criteria")
         #10.1364/JOSAA.401908 equation 32
         #Checks distance criteria for sampling considerations
         distance_criteria_y = 2 * self.Nyp * (self.delta_y**2) / self.wavelength
@@ -84,7 +84,7 @@ class Propagator(pl.LightningModule):
         distance_criteria_x *= torch.sqrt(1 - (self.wavelength / (2 * self.Nxp))**2)
         
         strict_distance = torch.min(distance_criteria_y, distance_criteria_x) 
-        logging.debug("Propagator | maximum propagation distance for asm : {}".format(strict_distance))
+        logger.debug("Maximum propagation distance for asm : {}".format(strict_distance))
     
         return(torch.le(self.distance, strict_distance))
  
@@ -93,7 +93,7 @@ class Propagator(pl.LightningModule):
     #--------------------------------
 
     def init_asm_transfer_function(self): 
-        logging.debug("Propagator | initializing ASM transfer function")
+        logger.debug("Initializing ASM transfer function")
         self.x = torch.linspace(-self.Lxp / 2, self.Lxp / 2, self.Nxp)
         self.y = torch.linspace(-self.Lyp / 2, self.Lyp / 2, self.Nyp)
         self.xx, self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
@@ -123,7 +123,7 @@ class Propagator(pl.LightningModule):
     #--------------------------------
 
     def init_rsc_transfer_function(self):
-        logging.debug("Propagator | initializing RSC transfer function")
+        logger.debug("Initializing RSC transfer function")
         #Double the size to eliminate rsc errors.
         self.x = torch.linspace(-self.Lxp , self.Lxp, 2*self.Nxp).to(self.device)
         self.y = torch.linspace(-self.Lyp , self.Lyp, 2*self.Nyp).to(self.device)
@@ -194,10 +194,10 @@ if __name__ == "__main__":
     import datamodule
     from utils import parameter_manager
 
-    logging.basicConfig(level=logging.DEBUG)
 
-    params = yaml.load(open("../config.yaml"), Loader=yaml.FullLoader)
+    params = yaml.load(open("config.yaml"), Loader=yaml.FullLoader)
     params_prop = params['don']['propagators'][0]
+    paths = params['paths']
 
     dm = datamodule.Wavefront_MNIST_DataModule(params)
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     image,slm_sample,labels = next(iter(dm.train_dataloader()))
    
     #Propagate an image
-    propagator = Propagator(params_prop)
+    propagator = Propagator(params_prop, paths)
     dp = propagator(image)
 
     fig,ax = plt.subplots(1,3,figsize=(10,5))

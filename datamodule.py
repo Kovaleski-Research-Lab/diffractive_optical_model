@@ -3,7 +3,7 @@
 #--------------------------------
 
 import os
-import logging
+from loguru import logger
 from typing import Optional
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -18,7 +18,6 @@ import sys
 sys.path.append('../')
 import custom_transforms as ct
 
-import glob
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -29,15 +28,15 @@ from torch.utils.data import Dataset, DataLoader
 class Wavefront_MNIST_DataModule(LightningDataModule):
     def __init__(self, params: dict, transform:str = "") -> None:
         super().__init__() 
-        logging.debug("datamodule.py - Initializing Wavefront_MNIST_DataModule")
+        logger.debug("Initializing Wavefront_MNIST_DataModule")
         self.params = params.copy()
         self.Nx = self.params['Nxp']
         self.Ny = self.params['Nyp']
         self.n_cpus = self.params['n_cpus']
-        self.path_data = self.params['path_data']
-        self.path_root = self.params['path_root']
+        self.path_data = self.params['paths']['path_data']
+        self.path_root = self.params['paths']['path_root']
         self.path_data = os.path.join(self.path_root,self.path_data)
-        logging.debug("datamodule.py - Setting path_data to {}".format(self.path_data))
+        logger.debug("Setting path_data to {}".format(self.path_data))
         self.batch_size = self.params['batch_size']
         self.data_split = self.params['data_split']
         self.initialize_transform()
@@ -63,14 +62,14 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
         if n_cpus > os.cpu_count(): # type: ignore
             n_cpus = 1
         self.n_cpus = n_cpus 
-        logging.debug("Wavefront_MNIST_DataModule | Setting CPUS to {}".format(self.n_cpus))
+        logger.debug("Setting CPUS to {}".format(self.n_cpus))
 
     def prepare_data(self) -> None:
         MNIST(self.path_data, train=True, download=True)
         MNIST(self.path_data, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None):
-        logging.debug("Wavefront_MNIST_DataModule | setup with datasplit = {}".format(self.data_split))
+        logger.debug("Setup() with datasplit = {}".format(self.data_split))
         train_file = f'MNIST/{self.data_split}.split'
         valid_file = 'MNIST/valid.split'
 
@@ -122,7 +121,7 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
 
 class customDataset(Dataset):
     def __init__(self, data, transform):
-        logging.debug("datamodule.py - Initializing customDataset")
+        logger.debug("Initializing customDataset")
         self.samples, self.targets = data[0], data[1]
         #shape = data[0].shape
         #self.samples = torch.ones(shape)
@@ -134,7 +133,7 @@ class customDataset(Dataset):
 
         self.targets = self.samples
         self.transform = transform
-        logging.debug("customDataset | Setting transform to {}".format(self.transform))
+        logger.debug("Setting transform to {}".format(self.transform))
 
     def __len__(self):
         return len(self.samples)
@@ -157,7 +156,7 @@ def select_data(params):
     if params['which'] == 'MNIST' :
         return Wavefront_MNIST_DataModule(params) 
     else:
-        logging.error("datamodule.py | Dataset {} not implemented!".format(params['which']))
+        logger.error("Dataset {} not implemented!".format(params['which']))
         exit()
 
 #--------------------------------
@@ -170,13 +169,13 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
     from pytorch_lightning import seed_everything
     from utils import parameter_manager
-    logging.basicConfig(level=logging.DEBUG)
     seed_everything(1337)
     os.environ['SLURM_JOB_ID'] = '0'
     #plt.style.use(['science'])
 
     #Load config file   
-    params = yaml.load(open('../config.yaml'), Loader = yaml.FullLoader).copy()
+    params = yaml.load(open('config.yaml'), Loader = yaml.FullLoader).copy()
+    params['batch_size'] = 3
     params['model_id'] = "test_0"
     #params['path_data'] = '/home/marshall/Documents/research/deep-optics/data/'
 
@@ -190,16 +189,15 @@ if __name__=="__main__":
 
     images,slm_sample, labels = next(iter(dm.train_dataloader()))
 
-    from IPython import embed; embed()
     print(images[0])
     print(dm.train_dataloader().__len__())
     print(images.shape)
     print(labels)
 
-    #fig,ax = plt.subplots(1,3,figsize=(5,5))
-    #for i,image in enumerate(images):
-    #    ax[i].imshow(image.squeeze().abs())
-    #    ax[i].axis('off')
+    fig,ax = plt.subplots(1,3,figsize=(5,5))
+    for i,image in enumerate(images):
+        ax[i].imshow(image.squeeze().abs())
+        ax[i].axis('off')
 
-    #plt.show()
+    plt.show()
 

@@ -1,0 +1,169 @@
+#--------------------------------
+#       General Params
+#--------------------------------
+seed: [True, 1337]
+train: True
+model_id: 'early_testing'
+demo: True
+
+torch_home: '~/.cache/torch/'
+#torch_home: '/develop/data/resolution_constrained_deep_optics/pretrained_models/'
+
+#don: False
+#classifier: False
+
+#--------------------------------
+#       Training Params
+#--------------------------------
+batch_size: 1
+num_epochs: 1
+accelerator: 'gpu' 
+gpu_config: [True, [0]]
+valid_rate: 1
+
+#--------------------------------
+#       All paths
+#--------------------------------
+
+paths: &id001
+  #path_root: '/home/mblgh6/Documents/research/'
+  #path_root: '/home/marshall/Documents/research/diffractive_optical_model/'
+  path_root: '/Users/marshalllindsay/research/diffractive_optical_model/'
+  path_bench: 'optics_bench'
+  path_sim: 'diffractive_optic_simulator'
+  
+  path_data: 'data/'
+  path_train: 'train/'
+  path_valid: 'valid/'
+  path_model: 'my_models/'
+  path_results: 'results/'
+  
+  path_checkpoint: 'my_models/'
+  path_checkpoint_don: 'my_models/'
+
+#--------------------------------
+#       Classifier Params
+#--------------------------------
+#Classifier
+num_classes: 10
+freeze_backbone: False
+num_layers_classifier: 1
+name_classifier: 'resnet18'
+optimizer_classifier: 'ADAM'
+learning_rate_classifier: 0.001
+transfer_learn_classifier: False
+load_checkpoint_classifier: False
+objective_function_classifier: 'cross_entropy'
+
+#Cooperative
+load_checkpoint_cooperative: False
+
+#--------------------------------
+#       DON Params
+#--------------------------------
+# Model / learning
+optimizer_don: 'ADAM'
+learning_rate_don: 3.e-1
+transfer_learn_don: False
+load_checkpoint_don: False
+objective_function_don: 'mse'
+
+#Propagation
+wavelength: 1550.e-9
+distance0 : 300.e-3
+distance1 : 100.e-3
+Nxp: 1080
+Nyp: 1920
+Lxp: 8.64e-3
+Lyp: 15.36e-3
+adaptive: True
+
+#--------------------------------
+#       CITL Params
+#--------------------------------
+load_checkpoint_citl: False
+learning_rate_citl: 3.e-1
+
+#--------------------------------
+#       Datamodule Params
+#--------------------------------
+#flat_calibration, MNIST
+which: 'MNIST'
+n_cpus: 2
+resize_row: 1080
+resize_col: 1080
+data_split: 'mnist_1000perClass'
+calibration_pattern: 'flat_1080_1920.pt'
+#data_split: 'mnist_100perClass'
+#data_split: 'mnist_10perClass'
+#data_split: 'mnist_1perClass'
+#data_split: 'mnist_single0' #one
+#data_split: 'mnist_single1' #eight
+#data_split: 'mnist_10_1'
+#data_split: 'mnist_10_8'
+#data_split: 'mnist_100_1'
+#data_split: 'mnist_100_8'
+
+wavefront_transform:
+    phase_initialization_strategy: 0
+
+don:
+  sources:
+    0:
+      wavelength: 1550.e-9
+      distance: 100.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+  propagators:
+    0:
+      wavelength: 1550.e-9
+      distance : 310.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+    1:
+      wavelength: 1550.e-9
+      distance : 202.e-3
+      Nxp: 1080
+      Nyp: 1920
+      Lxp: 8.64e-3
+      Lyp: 15.36e-3
+      adaptive: False
+  modulators:
+    0:
+      Nxm: 1080
+      Nym: 1920
+      Lxm: 8.64e-3
+      Lym: 15.36e-3
+      wavelength: 1550.e-9
+      focal_length: 'none'
+      modulator_type: 'none' # none, phase_only, amplitude_only, complex
+      phase_initialization: 'uniform' # random, lens, uniform, TODO: specified
+      amplitude_initialization: 'uniform' # random, uniform, specified
+      initialization_filename: 'none'
+      calibrate_phase: False
+      calibrate_amplitude: True
+      load_calibration: False
+      path_calibration: 'calibration_pattern/'
+      calibration_name: '7020-1_6010-1247.pt'
+    1:
+      Nxm: 1080
+      Nym: 1920
+      Lxm: 8.64e-3
+      Lym: 15.36e-3
+      wavelength: 1550.e-9
+      focal_length: 125.e-3
+      modulator_type: 'none' # none, phase_only, amplitude_only, complex
+      phase_initialization: 'lens' # random, lens, uniform
+      amplitude_initialization: 'uniform' # random, uniform, specified
+      initialization_filename: 'none'
+      calibrate_phase: False
+      calibrate_amplitude: False
+      load_calibration: False
+      path_calibration: 'none'
+      calibration_name: 'none'
