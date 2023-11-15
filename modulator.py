@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 # Initialize: Wavefront Modulator
 #--------------------------------
 
-class Modulator(pl.LightningModule):
+class oldModulator(pl.LightningModule):
     def __init__(self, params, paths):
         super().__init__()
         logging.debug("modulator.py - Initializing Modulator")
@@ -297,30 +297,124 @@ class Modulator(pl.LightningModule):
 #        self.phase = torch.nn.Parameter(phase)
 #
 #        self.initialize_gradients()
+
+
+class ModulatorFactory():
+    def __call__(self, plane, params):
+        return self.create_modulator(plane, params)
+    
+    def create_modulator(self, plane, params):
+        modulator_type = params['type']
+
+        phase_init = params['phase_init']
+        amplitude_init = params['amplitude_init']
+
+        phase_pattern = params['phase_pattern']
+        amplitude_pattern = params['amplitude_pattern']
+
+        if phase_init == 'uniform':
+            phase = self.uniform_phase(plane)
+        elif phase_init == 'random':
+            phase = self.random_phase(plane)
+        elif phase_init == 'custom':
+            phase = self.custom_phase(plane, phase_pattern)
+        else:
+            raise Exception
+        
+        if amplitude_init == 'uniform':
+            amplitude = self.uniform_amplitude(plane)
+        elif amplitude_init == 'random':
+            amplitude = self.random_amplitude(plane)
+        elif amplitude_init == 'custom':
+            amplitude = self.custom_amplitude(plane, amplitude_pattern)
+        else:
+            raise Exception
+
+        if modulator_type == 'phase_only':
+            phase.requires_grad = True
+            amplitude.requires_grad = False
+        elif modulator_type == 'amplitude_only':
+            phase.requires_grad = False
+            amplitude.requires_grad = True
+        elif modulator_type == 'complex':
+            phase.requires_grad = True
+            amplitude.requires_grad = True
+        elif modulator_type == None:
+            phase.requires_grad = False
+            amplitude.requires_grad = False
+        else:
+            phase.requires_grad = False
+            amplitude.requires_grad = False
+            #Log a non-critical error here
+
+        modulator = Modulator(amplitude.clone(), phase.clone())
+        return modulator
+
+    def random_phase(self, plane) -> torch.Tensor:
+        phase = torch.tensor(0)
+        return phase
+
+    def random_amplitude(self, plane) -> torch.Tensor:
+
+        amplitude = torch.tensor(0)
+        return amplitude
+
+    def uniform_phase(self, plane) -> torch.Tensor:
+        phase = torch.tensor(0)
+        return phase
+
+    def uniform_amplitude(self, plane) -> torch.Tensor:
+        amplitude = torch.tensor(0)
+        return amplitude
+
+    def custom_phase(self, plane, phase_pattern) -> torch.Tensor:
+        phase = torch.tensor(0)
+        return phase
+
+    def custom_amplitude(self, plane, amplitude_pattern) -> torch.Tensor:
+        amplitude = torch.tensor(0)
+        return amplitude
+
+
+class Modulator(pl.LightningModule):
+    def __init__(self, amplitude:torch.Tensor, phase:torch.Tensor):
+        super().__init__()
+        self.amplitude = amplitude
+        self.phase = phase
+        self.transmissivity = amplitude * torch.exp(1j * phase)
+
+    def forward(self, input_wavefront):
+        return input_wavefront * self.transmissivity
 #--------------------------------
 # Initialize: Test code
 #--------------------------------
-
 if __name__ == "__main__":
-    import yaml
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from IPython import embed 
-    logging.basicConfig(level=logging.DEBUG)
-    params = yaml.load(open("../deep_optics/config.yaml"), Loader=yaml.FullLoader)
-    params = params['don']['modulators'][0]
+    import plane
 
-    modulator = Modulator(params)
+    plane_params = { 
+                "name" : "test_plane",
+                "center" : (0,0),
+                "size" : (8.96e-3, 8.96e-3),
+                "Nx" : 1080,
+                "Ny" : 1080,
+            }
 
-    lens1 = Lens(params, focal_length = torch.tensor(0.0337))
-    lens2 = Lens(params, focal_length = torch.tensor(0.60264/2))
+    lens_params = {
+                "type" : 'phase_only',
+                "phase_init" : 'lens',
+                "amp_init": 'uniform',
+                "phase_pattern" : None,
+                "amplitude_pattern" : None,
+            }
+ 
+    #Need to create the geometry for the modulators
+    plane = plane.Plane(plane_params)
 
-    #fig,ax = plt.subplots(1,3,figsize=(10,5))
+    mod_factory = ModulatorFactory()
 
-    #ax[0].imshow(torch.exp(1j*lens1.phase.squeeze()).angle().detach())
-    #ax[1].imshow(torch.exp(1j*lens2.phase.squeeze()).angle().detach())
-    #ax[2].imshow(torch.exp(1j*modulator.phase.squeeze().detach()).angle())
+    #You can call the ModulatorFactory directly
+    lens = mod_factory(plane, lens_params)
+    #Or you can directly call the creation function
+    #lens = mod_factory.create_modulator(plane, lens_params)
 
-    #plt.show()
-    embed()
-    
+

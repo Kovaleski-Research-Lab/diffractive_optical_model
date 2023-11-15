@@ -26,3 +26,14 @@ class DiffractiveBlock(pl.LightningModule):
     def forward(self, input_wavefront):
         return(self.propagator(self.modulator(input_wavefront)))
 
+
+
+
+if __name__ == "__main__":
+
+    input_plane_params = {'name':'plane0', 'center':[0,0,0], 'size':[8.96e-3, 8.96e-3], 'Nx':1080, 'Ny':1080}
+    output_plane_params = {'name':'plane1', 'center':[0,0,3.e-2], 'size':[8.96e-3, 8.96e-3], 'Nx':1080, 'Ny':1080}
+
+
+
+    db = DiffractiveBlock(params)

@@ -185,7 +185,7 @@ class PropagatorFactory():
     def __init__(self, input_plane, output_plane, params):
 
         self.params = params.copy()
-        self.paths = paths.copy()
+        self.paths = params['paths']
         self.input_plane = input_plane
         self.output_plane = output_plane
 
@@ -194,7 +194,12 @@ class PropagatorFactory():
 
         pass
     
+    def __call__(self):
+        return Propagator(self.params, self.paths)
+
     def select_propagator(self):
+
+        
         pass
 
     def init_asm(self):
