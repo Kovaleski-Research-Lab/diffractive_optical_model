@@ -180,6 +180,36 @@ class Propagator(pl.LightningModule):
         U = self.center_crop_wavefront(U)
         return U
 
+
+class PropagatorFactory():
+    def __init__(self, input_plane, output_plane, params):
+
+        self.params = params.copy()
+        self.paths = paths.copy()
+        self.input_plane = input_plane
+        self.output_plane = output_plane
+
+        distance = params['distance']
+        wavelength = params['wavelength']
+
+        pass
+    
+    def select_propagator(self):
+        pass
+
+    def init_asm(self):
+        pass
+
+    def init_rsc(self):
+        pass
+
+    def init_shfit(self):
+        pass
+    
+    def init_nonuniform(self):
+        pass
+
+
 #--------------------------------
 # Initialize: Test code
 #--------------------------------
