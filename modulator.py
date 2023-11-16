@@ -5,6 +5,7 @@ import os
 import torch
 import logging
 from IPython import embed
+from loguru import logger
 import pytorch_lightning as pl
 
 import plane
@@ -304,7 +305,7 @@ class oldModulator(pl.LightningModule):
 class ModulatorFactory():
     def __call__(self, plane, params):
         return self.create_modulator(plane, params)
-    
+
     def create_modulator(self, plane, params):
         modulator_type = params['type']
 
@@ -349,9 +350,12 @@ class ModulatorFactory():
             amplitude.requires_grad = False
             #Log a non-critical error here
 
-        modulator = Modulator(amplitude.clone(), phase.clone())
+        modulator = Modulator(plane, amplitude.clone(), phase.clone())
         return modulator
 
+    ########################
+    # The assembly line
+    ########################
     def random_phase(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
         phase = torch.rand(Nx, Ny) * torch.pi * 2
@@ -388,58 +392,90 @@ class ModulatorFactory():
         assert Ny == shape[-1]
         return amplitude
 
-
 class Modulator(pl.LightningModule):
-    def __init__(self, amplitude:torch.Tensor, phase:torch.Tensor):
+    def __init__(self, plane:plane.Plane, amplitude:torch.Tensor, phase:torch.Tensor):
         super().__init__()
-        self.amplitude = amplitude
-        self.phase = phase
+        self.plane = plane
+        self.amplitude = torch.nn.Parameter(amplitude)
+        self.phase = torch.nn.Parameter(phase)
         self.transmissivity = amplitude * torch.exp(1j * phase)
 
-    def forward(self, input_wavefront):
+    def forward(self, input_wavefront:torch.Tensor) -> torch.Tensor:
         return input_wavefront * self.transmissivity
+    
+    def print_info(self):
+        self.plane.print_info()
+        pass
+
+
+def lensPhase(plane, wavelength, focal_length):
+    xx,yy = plane.xx, plane.yy
+    Nx, Ny = plane.Nx, plane.Ny
+    phase = -(xx**2 + yy**2) / ( 2 * focal_length )
+    phase *= (2 * torch.pi / wavelength)
+    phase = phase.view(1,1,Nx,Ny)
+    return phase
+
+
+
+
+
 #--------------------------------
 # Initialize: Test code
 #--------------------------------
 if __name__ == "__main__":
     import plane
 
+    Nx = 1920
+    Ny = 1080
+    wavelength = 1.55e-6
+    focal_length = 10.e-2
+    
     plane_params = { 
                 "name" : "test_plane",
                 "center" : (0,0),
                 "size" : (8.96e-3, 8.96e-3),
-                "Nx" : 1080,
-                "Ny" : 1080,
+                "Nx" : Nx,
+                "Ny" : Ny,
             }
 
+    #Need to create the geometry for the modulators
+    test_plane = plane.Plane(plane_params)
     lens_params = {
                 "type" : 'phase_only',
-                "phase_init" : 'lens',
-                "amp_init": 'uniform',
-                "phase_pattern" : None,
+                "phase_init" : 'custom',
+                "amplitude_init": 'uniform',
+                "phase_pattern" : lensPhase(test_plane, wavelength, focal_length),
                 "amplitude_pattern" : None,
             }
  
-    #Need to create the geometry for the modulators
-    plane = plane.Plane(plane_params)
-
     mod_factory = ModulatorFactory()
 
     #You can call the ModulatorFactory directly
-    lens = mod_factory(plane, lens_params)
+    lens = mod_factory(test_plane, lens_params)
 
+    #Or you can directly call the creation function
+    #lens = mod_factory.create_modulator(test_plane, lens_params)
+
+    lens.print_info()
 
     random_params = {
                 "type" : 'phase_only',
                 "phase_init" : 'random',
-                "amp_init": 'random',
+                "amplitude_init": 'random',
                 "phase_pattern" : None,
                 "amplitude_pattern" : None,
             }
 
-    mod = mod_factory(plane, random_params)
+    mod = mod_factory(test_plane, random_params)
+    mod.print_info()
 
-    #Or you can directly call the creation function
-    #lens = mod_factory.create_modulator(plane, lens_params)
+    uniform_params = {
+                "type" : 'phase_only',
+                "phase_init" : 'uniform',
+                "amplitude_init": 'uniform',
+                "phase_pattern" : None,
+                "amplitude_pattern" : None,
+            }
 
 
