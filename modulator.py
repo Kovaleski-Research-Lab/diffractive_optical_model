@@ -7,6 +7,8 @@ import logging
 from IPython import embed
 import pytorch_lightning as pl
 
+import plane
+
 #--------------------------------
 # Initialize: Wavefront Modulator
 #--------------------------------
@@ -350,29 +352,40 @@ class ModulatorFactory():
         modulator = Modulator(amplitude.clone(), phase.clone())
         return modulator
 
-    def random_phase(self, plane) -> torch.Tensor:
-        phase = torch.tensor(0)
+    def random_phase(self, plane:plane.Plane) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        phase = torch.rand(Nx, Ny) * torch.pi * 2
         return phase
 
-    def random_amplitude(self, plane) -> torch.Tensor:
-
-        amplitude = torch.tensor(0)
+    def random_amplitude(self, plane:plane.Plane) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        amplitude = torch.rand(Nx, Ny)
         return amplitude
 
-    def uniform_phase(self, plane) -> torch.Tensor:
-        phase = torch.tensor(0)
+    def uniform_phase(self, plane:plane.Plane) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        phase = torch.zeros(Nx, Ny)
         return phase
 
-    def uniform_amplitude(self, plane) -> torch.Tensor:
-        amplitude = torch.tensor(0)
+    def uniform_amplitude(self, plane:plane.Plane) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        amplitude = torch.ones(Nx, Ny)
         return amplitude
 
-    def custom_phase(self, plane, phase_pattern) -> torch.Tensor:
-        phase = torch.tensor(0)
+    def custom_phase(self, plane:plane.Plane, phase_pattern:torch.Tensor) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        phase = phase_pattern
+        shape = phase.shape
+        assert Nx == shape[-2]
+        assert Ny == shape[-1]
         return phase
 
-    def custom_amplitude(self, plane, amplitude_pattern) -> torch.Tensor:
-        amplitude = torch.tensor(0)
+    def custom_amplitude(self, plane:plane.Plane, amplitude_pattern:torch.Tensor) -> torch.Tensor:
+        Nx, Ny = plane.Nx, plane.Ny
+        amplitude = amplitude_pattern
+        shape = amplitude_pattern.shape
+        assert Nx == shape[-2]
+        assert Ny == shape[-1]
         return amplitude
 
 
@@ -414,6 +427,18 @@ if __name__ == "__main__":
 
     #You can call the ModulatorFactory directly
     lens = mod_factory(plane, lens_params)
+
+
+    random_params = {
+                "type" : 'phase_only',
+                "phase_init" : 'random',
+                "amp_init": 'random',
+                "phase_pattern" : None,
+                "amplitude_pattern" : None,
+            }
+
+    mod = mod_factory(plane, random_params)
+
     #Or you can directly call the creation function
     #lens = mod_factory.create_modulator(plane, lens_params)
 
