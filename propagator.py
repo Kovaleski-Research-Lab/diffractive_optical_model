@@ -7,11 +7,13 @@ import torchvision
 from loguru import logger
 import pytorch_lightning as pl
 
+import plane
+
 #--------------------------------
 # Initialize: Propagator
 #--------------------------------
 
-class Propagator(pl.LightningModule):
+class oldPropagator(pl.LightningModule):
     def __init__(self, params, paths):
         super().__init__()
         logger.debug("Initializing Propagator")
@@ -182,32 +184,136 @@ class Propagator(pl.LightningModule):
 
 
 class PropagatorFactory():
-    def __init__(self, input_plane, output_plane, params):
-
-        self.params = params.copy()
-        self.paths = params['paths']
-        self.input_plane = input_plane
-        self.output_plane = output_plane
-
-    
-    def __call__(self, input_plane, output_plane, params):
+    def __call__(self, input_plane:plane.Plane, output_plane:plane.Plane, params:dict):
         return self.select_propagator(input_plane, output_plane, params)
 
-    def select_propagator(self):
+    def select_propagator(self, input_plane, output_plane, params):
+        logger.debug("Selecting propagator")
+        ###
+        # Propagator types:
+        #   ASM: Angular spectrum method
+        #   RSC: Rayleigh-Sommerfeld convolution
+        #   Shift: Shifted angular spectrum method
+        #   Scaled: Scaled angular spectrum method 
+        #   Rotated: Rotated angular spectrum method
 
-        pass
+        #   ASM: 10.1364/JOSAA.401908 
+        #   RSC: 10.1364/JOSAA.401908
+        #   Shift: 10.1364/OE.18.018453 
+        #   Scaled: 10.1364/OL.37.004128 
+        #   Rotated: 10.1364/JOSAA.20.001755
 
-    def init_asm(self):
-        pass
+        # This function compares the input and output planes to determine 
+        # which propagator type to use and in which order to apply the propagators.
 
-    def init_rsc(self):
-        pass
+        # The order of operations is:
+        #   1. Rotate
+        #   2. Propagate
+        #      a. ASM or RSC?
+        #      c. Scaled?
+        #   3. Shift
+        #   4. Rotate
 
-    def init_shfit(self):
-        pass
+        # The scaled propagation is a special case of the ASM and RSC propagation
+        # methods where the nonuniform fourier transform is used to scale the
+        # propagation planes. The choice between ASM and RSC is determined by the
+        # distance between the input and output planes.
+        ###
+
+        # Check: Are the input and output planes tilted? If so, create a rotation
+        # matrix to rotate both planes to the same orientation.
+        if input_plane.normal != output_plane.normal:
+            logger.debug("Input and output planes are tilted. Creating rotation matrix")
+            rot = self.create_rotation_matrix(input_plane.normal, output_plane.normal)
+
+        
+        
+        # Check: The distance between the input and output planes. If the distance
+        # is less than the ASM distance, use the RSC propagator. Otherwise, use
+        # the ASM propagator.
+        if check_asm_distance(input_plane, output_plane, params):
+            logger.debug("Using ASM propagator")
+            propagator = ASM_Propagator(input_plane, output_plane, rot, params)
+        else:
+            logger.debug("Using RSC propagator")
+            propagator = RSC_Propagator(input_plane, output_plane, rot, params)
+
+
+    def create_rotation_matrix(self, input_normal, output_normal):
+        logger.debug("Creating rotation matrix")
+        # This function creates a rotation matrix to rotate the input and output
+        # planes to the same orientation. The rotation matrix is created using
+        # the cross product of the input and output plane normals.
+        # The rotation matrix is then applied to the input and output planes.
+        # The rotation matrix is returned.
+        rot_axis = torch.cross(input_normal, output_normal)
+        rot_axis = rot_axis / torch.norm(rot_axis)
+        rot_angle = torch.acos(torch.dot(input_normal, output_normal))
+        rot_matrix = self.create_rotation_matrix_from_axis_angle(rot_axis, rot_angle)
+        return rot_matrix
+
+    def create_rotation_matrix_from_axis_angle(self, axis, angle):
+        logger.debug("Creating rotation matrix from axis and angle")
+        # This function creates a rotation matrix from an axis and angle.
+        # The rotation matrix is returned.
+        axis = axis / torch.norm(axis)
+        a = torch.cos(angle / 2.0)
+        b, c, d = -axis * torch.sin(angle / 2.0)
+        rot_matrix = torch.tensor([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
+                                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
+                                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
+        return rot_matrix
+
+    def check_asm_distance(self, input_plane, output_plane, params):
+        logger.debug("Checking ASM propagation criteria")
+        #10.1364/JOSAA.401908 equation 32
+        #Checks distance criteria for sampling considerations
+        wavelength = params['wavelength']
+        delta_x = input_plane.delta_x
+        delta_y = input_plane.delta_y
+        Nx = input_plane.Nx
+        Ny = input_plane.Ny
+
+        distance = torch.norm(output_plane.center - input_plane.center)
+
+        
+        distance_criteria_y = 2 * Ny * (delta_y**2) / wavelength
+        distance_criteria_y *= torch.sqrt(1 - (wavelength / (2 * Ny))**2)
+       
+        distance_criteria_x = 2 * Nx * (delta_x**2) / wavelength
+        distance_criteria_x *= torch.sqrt(1 - (wavelength / (2 * Nx))**2)
+        
+        strict_distance = torch.min(distance_criteria_y, distance_criteria_x) 
+        logger.debug("Maximum propagation distance for asm : {}".format(strict_distance))
     
-    def init_nonuniform(self):
+        return(torch.le(distance, strict_distance))
+
+
+class Propagator(pl.LightningModule):
+    def __init__(self, input_plane, output_plane, params):
+        
+    def forward(self, input_wavefront):
+        return self.rotate(self.shift(self.propagate(self.rotate(input_wavefront))))
+
+    def propagate(self, input_wavefront):
+        ###
+        # Propagates the wavefront from the input plane to the output plane.
+        ###
         pass
+
+    def shift(self, input_wavefront):
+        ###
+        # Uses the shift property of the fourier transform to shift the wavefront.
+        ###
+        pass
+
+    def rotate(self, input_wavefront):
+        ###
+        # Rotates the wavefront to the orientation of the output plane.
+        ###
+        return self.rotate(input_wavefront)
+
+
 
 
 #--------------------------------
