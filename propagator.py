@@ -241,14 +241,7 @@ class PropagatorFactory():
 
     def create_rotation_matrix(self, input_normal, output_normal):
         logger.debug("Creating rotation matrix")
-        # This function creates a rotation matrix to rotate the input and output
-        # planes to the same orientation. The rotation matrix is created using
-        # the cross product of the input and output plane normals.
-        # The rotation matrix is then applied to the input and output planes.
-        # The rotation matrix is returned.
-        rot_axis = torch.cross(input_normal, output_normal)
-        rot_axis = rot_axis / torch.norm(rot_axis)
-        rot_angle = torch.acos(torch.dot(input_normal, output_normal))
+
         rot_matrix = self.create_rotation_matrix_from_axis_angle(rot_axis, rot_angle)
         return rot_matrix
 
