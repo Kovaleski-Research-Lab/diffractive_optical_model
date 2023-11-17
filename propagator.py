@@ -189,17 +189,12 @@ class PropagatorFactory():
         self.input_plane = input_plane
         self.output_plane = output_plane
 
-        distance = params['distance']
-        wavelength = params['wavelength']
-
-        pass
     
-    def __call__(self):
-        return Propagator(self.params, self.paths)
+    def __call__(self, input_plane, output_plane, params):
+        return self.select_propagator(input_plane, output_plane, params)
 
     def select_propagator(self):
 
-        
         pass
 
     def init_asm(self):

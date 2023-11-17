@@ -307,45 +307,61 @@ class ModulatorFactory():
         return self.create_modulator(plane, params)
 
     def create_modulator(self, plane, params):
+        logger.debug("Creating modulator")
         modulator_type = params['type']
-
         phase_init = params['phase_init']
         amplitude_init = params['amplitude_init']
-
         phase_pattern = params['phase_pattern']
         amplitude_pattern = params['amplitude_pattern']
 
         if phase_init == 'uniform':
+            logger.info("Uniform phase initialization")
             phase = self.uniform_phase(plane)
         elif phase_init == 'random':
+            logger.info("Random phase initialization")
             phase = self.random_phase(plane)
         elif phase_init == 'custom':
+            logger.info("Custom phase initialization")
             phase = self.custom_phase(plane, phase_pattern)
         else:
-            raise Exception
+            logger.warning("Unsupported phase initialization : {}".format(phase_init))
+            logger.warning("Setting uniform phase initialization")
+            phase = self.uniform_phase(plane)
+            raise Exception('unsupportedInitialization')
         
         if amplitude_init == 'uniform':
+            logger.info("Uniform amplitude initialization")
             amplitude = self.uniform_amplitude(plane)
         elif amplitude_init == 'random':
+            logger.info("Random amplitude initialization")
             amplitude = self.random_amplitude(plane)
         elif amplitude_init == 'custom':
+            logger.info("Custom amplitude initialization")
             amplitude = self.custom_amplitude(plane, amplitude_pattern)
         else:
-            raise Exception
+            logger.warning("Unsupported amplitude initialization : {}".format(amplitude_init))
+            logger.warning("Setting uniform amplitude initialization")
+            amplitude = self.uniform_amplitude(plane)
+            raise Exception('unsupportedInitialization')
 
         if modulator_type == 'phase_only':
+            logger.info("Phase only optimization")
             phase.requires_grad = True
             amplitude.requires_grad = False
         elif modulator_type == 'amplitude_only':
+            logger.info("Amplitude only optimization")
             phase.requires_grad = False
             amplitude.requires_grad = True
         elif modulator_type == 'complex':
+            logger.info("Phase and amplitude optimization")
             phase.requires_grad = True
             amplitude.requires_grad = True
         elif modulator_type == None:
+            logger.info("No modulator optimization")
             phase.requires_grad = False
             amplitude.requires_grad = False
         else:
+            logger.warning("modulator_type not specified. Setting no modulator optimization")
             phase.requires_grad = False
             amplitude.requires_grad = False
             #Log a non-critical error here
@@ -392,6 +408,50 @@ class ModulatorFactory():
         assert Ny == shape[-1]
         return amplitude
 
+
+    def test(self):
+        import itertools
+        logger.info("Running ModulatorFactory tests")
+        amplitude_initializations = ['uniform', 'random', 'custom', 'gibberish']
+        phase_initializations = ['uniform', 'random', 'custom', 'gibberish']
+        types = ['phase_only', 'amplitude_only', 'complex', 'gibberish']
+        Nx = 1920
+        Ny = 1080
+        wavelength = torch.tensor(1.55e-6)
+        focal_length = torch.tensor(10.e-2)
+        plane_params = { 
+                "name" : "test_plane",
+                "center" : (0,0),
+                "size" : (8.96e-3, 8.96e-3),
+                "Nx" : Nx,
+                "Ny" : Ny,
+            }
+
+        #Need to create the geometry for the modulators
+        test_plane = plane.Plane(plane_params)
+        test_cases = itertools.product(amplitude_initializations, phase_initializations, types)
+        for t in test_cases:
+            phase_pattern = lensPhase(test_plane, wavelength, focal_length) if t[1] == 'custom' else None
+            amplitude_pattern = lensPhase(test_plane, wavelength, focal_length) if t[0] == 'custom' else None
+            mod_params = {
+                "amplitude_init": t[0],
+                "phase_init" : t[1],
+                "type" : t[2],
+                "phase_pattern" : phase_pattern,
+                "amplitude_pattern" : amplitude_pattern
+            }
+            try:
+                mod = self.create_modulator(test_plane, mod_params)
+            except Exception as e:
+                if 'gibberish' in t:
+                    logger.success("Test succeeded: {}".format(t))
+                    logger.success("Exception caught: {}".format(e))
+                else:
+                    logger.error("Test failed: {}".format(t))
+                    logger.error("Exception caught: {}".format(e))
+            else:
+                logger.success("Test succeeded: {}".format(t))
+
 class Modulator(pl.LightningModule):
     def __init__(self, plane:plane.Plane, amplitude:torch.Tensor, phase:torch.Tensor):
         super().__init__()
@@ -405,19 +465,66 @@ class Modulator(pl.LightningModule):
     
     def print_info(self):
         self.plane.print_info()
-        pass
+        logger.info("Amplitude shape : {}".format(self.amplitude.shape))
+        logger.info("Phase shape : {}".format(self.phase.shape))
 
+#--------------------------------
+# Custom modulator functions
+#--------------------------------
 
-def lensPhase(plane, wavelength, focal_length):
-    xx,yy = plane.xx, plane.yy
-    Nx, Ny = plane.Nx, plane.Ny
+def lensPhase(lens_plane:plane.Plane, wavelength:torch.Tensor, focal_length:torch.Tensor) -> torch.Tensor:
+    xx,yy = lens_plane.xx, lens_plane.yy
+    Nx, Ny = lens_plane.Nx, lens_plane.Ny
     phase = -(xx**2 + yy**2) / ( 2 * focal_length )
     phase *= (2 * torch.pi / wavelength)
     phase = phase.view(1,1,Nx,Ny)
     return phase
 
+def spherical_phase(lens_plane: plane.Plane, radius_of_curvature: torch.Tensor) -> torch.Tensor:
+    xx, yy = lens_plane.xx, lens_plane.yy
+    phase = (xx**2 + yy**2) / (2 * radius_of_curvature)
+    return phase
 
+def fresnel_phase(lens_plane: plane.Plane, focal_length: torch.Tensor, wavelength: torch.Tensor) -> torch.Tensor:
+    xx, yy = lens_plane.xx, lens_plane.yy
+    r_squared = xx**2 + yy**2
+    phase = torch.sqrt(focal_length**2 + r_squared) - focal_length
+    phase *= (2 * torch.pi / wavelength)
+    return phase
 
+def grating_phase(lens_plane: plane.Plane, grating_period: torch.Tensor) -> torch.Tensor:
+    xx = lens_plane.xx
+    phase = (2 * torch.pi / grating_period) * xx
+    return phase
+
+def vortex_phase(lens_plane: plane.Plane, charge: int) -> torch.Tensor:
+    xx, yy = lens_plane.xx, lens_plane.yy
+    phase = charge * torch.atan2(yy, xx)
+    return phase
+
+def zernike_polynomial_phase(lens_plane: plane.Plane, zernike_polynomial: torch.Tensor) -> torch.Tensor:
+    xx, yy = lens_plane.xx, lens_plane.yy
+    phase = zernike_polynomial(xx, yy)
+    return phase
+
+def zernike_polynomial(N: int, M: int, xx: torch.Tensor, yy: torch.Tensor) -> torch.Tensor:
+    rho = torch.sqrt(xx**2 + yy**2)
+    theta = torch.atan2(yy, xx)
+    radial = radial_zernike(N, M, rho)
+    azimuthal = azimuthal_zernike(M, theta)
+    return radial * azimuthal
+
+def radial_zernike(N: int, M: int, rho: torch.Tensor) -> torch.Tensor:
+    radial = torch.zeros_like(rho)
+    for k in range((N-M)//2 + 1):
+        radial += (-1)**k * torch.pow(rho, N-2*k) / (torch.pow(2, N) * torch.factorial(k) * torch.factorial((N+M)/2 - k) * torch.factorial((N-M)/2 - k))
+    return radial
+
+def azimuthal_zernike(M: int, theta: torch.Tensor) -> torch.Tensor:
+    azimuthal = torch.zeros_like(theta)
+    for k in range((M+1)//2):
+        azimuthal += (-1)**k * torch.cos(theta) * torch.pow(torch.sin(theta), M-2*k) * torch.comb(M, k)
+    return azimuthal
 
 
 #--------------------------------
@@ -428,8 +535,8 @@ if __name__ == "__main__":
 
     Nx = 1920
     Ny = 1080
-    wavelength = 1.55e-6
-    focal_length = 10.e-2
+    wavelength = torch.tensor(1.55e-6)
+    focal_length = torch.tensor(10.e-2)
     
     plane_params = { 
                 "name" : "test_plane",
