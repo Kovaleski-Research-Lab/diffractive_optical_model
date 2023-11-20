@@ -10,14 +10,14 @@ class Plane():
         self.Lx, self.Ly = params['size']
         self.Nx = params['Nx']
         self.Ny = params['Ny']
-        self.center = (self.center_x, self.center_y, self.center_z)
-        self.size = (self.Lx, self.Ly)
-        self.normal_vector = torch.tensor(params['normal_vector']).float()
+        self.center = torch.tensor([self.center_x, self.center_y, self.center_z])
+        self.size = torch.tensor([self.Lx, self.Ly])
+        self.normal = torch.tensor(params['normal']).float()
 
         # Normalize the input and output normal vectors.
-        self.normal_vector = self.normal_vector / torch.norm(self.normal_vector)
+        self.normal = self.normal / torch.norm(self.normal)
 
-        self.rot = self.create_rotation_matrix(self.normal_vector, torch.tensor([0,0,1]))
+        self.rot = self.create_rotation_matrix(self.normal, torch.tensor([0,0,1]))
 
         self.build_plane()
 
@@ -27,6 +27,10 @@ class Plane():
         y = torch.div(self.Ly, 2)
         self.x = torch.linspace(-x, x, self.Nx)
         self.y = torch.linspace(-y, y, self.Ny)
+        
+        self.delta_x = torch.diff(self.x)[0]
+        self.delta_y = torch.diff(self.y)[0]
+
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
     def print_info(self):
@@ -34,7 +38,7 @@ class Plane():
         logger.info("Center: {}".format(self.center))
         logger.info("Size: {}".format(self.size))
         logger.info("Samples: {}".format((self.Nx, self.Ny)))
-        logger.info("Normal vector: {}".format(self.normal_vector))
+        logger.info("Normal vector: {}".format(self.normal))
         logger.info("Rotation matrix: {}".format(self.rot))
 
     def plot2d(self, ax):
@@ -52,7 +56,7 @@ class Plane():
         ax.plot([top_left_point[0], bottom_right_point[0]], [top_left_point[2], bottom_right_point[2]], 'k-')
 
         # Plot the normal vector
-        ax.quiver(self.center_x, self.center_z, self.normal_vector[0], self.normal_vector[2], color='r', angles='xy', scale_units='xy', scale=1)
+        ax.quiver(self.center_x, self.center_z, self.normal[0], self.normal[2], color='r', angles='xy', scale_units='xy', scale=1)
 
         return ax
 
@@ -124,28 +128,4 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
 
-    # Create a list of normal vectors to test.
-    normals_list = [torch.tensor([i,0,j]) for i in range(-2,2) for j in range(-2,2)]
-
-    fig,axis = plt.subplots(1,1, figsize=(5,5))
-    for i,normal in enumerate(normals_list):
-        logger.warning("Normal vector: {}. Index: {}".format(normal, i)) 
-        params = {"name" : "test_plane",
-                  "center" : (0,0,i),
-                  "size" : (1,1),
-                  "normal_vector" : normal,
-                  "Nx" : 10,
-                  "Ny" : 10,
-                }
-
-        plane = Plane(params)
-        plane.print_info()
-        plane.plot2d(axis)
-
-    from IPython import embed; embed()
-
-    axis.set_xlim(-1,len(normals_list)+1)
-    axis.set_ylim(-1,len(normals_list)+1)
-
-    plt.show()
 
