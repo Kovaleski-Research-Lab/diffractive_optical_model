@@ -3,186 +3,15 @@
 #--------------------------------
 
 import torch
-import torchvision
 from loguru import logger
+import torchvision
 import pytorch_lightning as pl
 
 import plane
 
 #--------------------------------
-# Initialize: Propagator
+# Class: PropagatorFactory
 #--------------------------------
-
-class oldPropagator(pl.LightningModule):
-    def __init__(self, params, paths):
-        super().__init__()
-        logger.debug("Initializing Propagator")
-
-        self.params = params.copy()
-        self.paths = paths.copy()
-
-        # Load: Physical parameters
-        self.Lxp = torch.tensor(self.params['Lxp'])   
-        self.Lyp = torch.tensor(self.params['Lyp'])   
-        self.Nxp = torch.tensor(self.params['Nxp'])
-        self.Nyp = torch.tensor(self.params['Nyp'])
-        self.distance = torch.tensor(params['distance'])
-        logger.debug("Setting distance to {}".format(self.distance))
-        self.wavelength = torch.tensor(self.params['wavelength'])
-        logger.debug("Setting wavelength to {}".format(self.wavelength))
-        self.wavenumber = 2 * torch.pi / self.wavelength 
-
-        self.delta_x = self.Lxp / self.Nxp
-        self.delta_y = self.Lyp / self.Nyp
-        logger.debug("Setting sampling pitch {}x{}".format(self.delta_x, self.delta_y))
-
-        # Initialize: Center crop transform
-        self.cc = torchvision.transforms.CenterCrop((int(self.Nxp), int(self.Nyp)))
-
-        #Create: The propagator
-        self.asm = None
-        self.adaptive = self.params['adaptive']
-        logger.debug("Setting adaptive to {}".format(self.adaptive))
-
-        self.create_propagator()
- 
-    def create_propagator(self):
-        logger.debug("Creating propagation layer")
-        padx = torch.div(self.Nxp, 2, rounding_mode='trunc')
-        pady = torch.div(self.Nyp, 2, rounding_mode='trunc')
-        self.padding = (pady,pady,padx,padx)    
-
-        if self.check_asm_distance():
-            self.asm = True
-            self.init_asm_transfer_function()
-        else:
-            self.asm = False
-            self.init_rsc_transfer_function()
-
-
-    def update_propagator(self):
-        logger.debug("Updating propgator due to specified distance")
-        if self.adaptive:
-            if self.check_asm_distance():
-                self.asm = True
-                self.init_asm_transfer_function()
-            else:
-                self.asm = False
-                self.init_rsc_transfer_function()
-        else:
-            if self.asm:
-                self.init_asm_transfer_function()
-            else:
-                self.init_rsc_transfer_function()
-
-    def check_asm_distance(self):
-        logger.debug("Checking ASM propagation criteria")
-        #10.1364/JOSAA.401908 equation 32
-        #Checks distance criteria for sampling considerations
-        distance_criteria_y = 2 * self.Nyp * (self.delta_y**2) / self.wavelength
-        distance_criteria_y *= torch.sqrt(1 - (self.wavelength / (2 * self.Nyp))**2)
-       
-        distance_criteria_x = 2 * self.Nxp * (self.delta_x**2) / self.wavelength
-        distance_criteria_x *= torch.sqrt(1 - (self.wavelength / (2 * self.Nxp))**2)
-        
-        strict_distance = torch.min(distance_criteria_y, distance_criteria_x) 
-        logger.debug("Maximum propagation distance for asm : {}".format(strict_distance))
-    
-        return(torch.le(self.distance, strict_distance))
- 
-    #--------------------------------
-    # Initialize: ASM transfer fxn
-    #--------------------------------
-
-    def init_asm_transfer_function(self): 
-        logger.debug("Initializing ASM transfer function")
-        self.x = torch.linspace(-self.Lxp / 2, self.Lxp / 2, self.Nxp)
-        self.y = torch.linspace(-self.Lyp / 2, self.Lyp / 2, self.Nyp)
-        self.xx, self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
-        
-        #Double the number of samples to eliminate asm errors
-        self.fx = torch.fft.fftfreq(2*len(self.x), torch.diff(self.x)[0]).to(self.device)
-        self.fy = torch.fft.fftfreq(2*len(self.y), torch.diff(self.y)[0]).to(self.device)
-        self.fxx, self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
-
-        #Mask out non-propagating waves
-        mask = torch.sqrt(self.fxx**2 + self.fyy**2) < (1/self.wavelength)
-        self.fxx = mask * self.fxx
-        self.fyy = mask * self.fyy
-        
-        #10.1364/JOSAA.401908 equation 28
-        #Also Goodman eq 3-78
-        self.fz = torch.sqrt(1 - (self.wavelength*self.fxx)**2 - (self.wavelength*self.fyy)**2).double()
-        self.fz *= ((torch.pi * 2)/self.wavelength).to(self.device)
-
-        H = torch.exp(1j * self.distance * self.fz)
-        H = torch.fft.fftshift(H)
-        H.requrires_grad = False
-        self.register_buffer('H', H)  
- 
-    #--------------------------------
-    # Initialize: RSC transfer fxn
-    #--------------------------------
-
-    def init_rsc_transfer_function(self):
-        logger.debug("Initializing RSC transfer function")
-        #Double the size to eliminate rsc errors.
-        self.x = torch.linspace(-self.Lxp , self.Lxp, 2*self.Nxp).to(self.device)
-        self.y = torch.linspace(-self.Lyp , self.Lyp, 2*self.Nyp).to(self.device)
-        self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
-
-        #10.1364/JOSAA.401908 equation 29
-        #Also Goodman eq 3-79
-        r = torch.sqrt(self.xx**2 + self.yy**2 + self.distance**2).double()
-        k = (2 * torch.pi / self.wavelength).double()
-        z = self.distance.double()
-
-        h_rsc = torch.exp(1j*k*r) / r
-        h_rsc *= ((1/r) - (1j*k))
-        h_rsc *= (1/(2*torch.pi)) * (z/r)
-        H = torch.fft.fft2(h_rsc)
-        mag = H.abs()
-        ang = H.angle()
-        
-        mag = mag / torch.max(mag)
-        H = mag * torch.exp(1j*ang)
-        H.requrires_grad = False
-        self.register_buffer('H', H) 
-
-    #--------------------------------
-    # Initialize: Helper to crop
-    #--------------------------------
-
-    def center_crop_wavefront(self, wavefront):
-        return self.cc(wavefront)
- 
-    #--------------------------------
-    # Initialize: Forward pass
-    #--------------------------------
-
-    def forward(self, wavefront, distance = None):
-
-        if distance is not None:
-            self.distance = distance
-            self.update_propagator()
-        if wavefront.shape != self.H.shape:
-            wavefront = torch.nn.functional.pad(wavefront,self.padding,mode="constant") 
-        # The different methods require a different ordering of the shifts...
-        if self.asm:
-            A = torch.fft.fft2(wavefront)
-            A = torch.fft.fftshift(A, dim=(-1,-2))
-            U = A * self.H
-            U = torch.fft.ifftshift(U, dim=(-1,-2))
-            U = torch.fft.ifft2(U)
-        else:
-            A = torch.fft.fft2(wavefront)
-            U = A * self.H 
-            U = torch.fft.ifft2(U)
-            U = torch.fft.ifftshift(U, dim=(-1,-2))
-        U = self.center_crop_wavefront(U)
-        return U
-
-
 class PropagatorFactory():
     def __call__(self, input_plane:plane.Plane, output_plane:plane.Plane, params:dict):
         return self.select_propagator(input_plane, output_plane, params)
@@ -234,12 +63,14 @@ class PropagatorFactory():
         if self.check_asm_distance(input_plane, output_plane, params):
             logger.debug("Using ASM propagator")
             transfer_function = self.init_asm_transfer_function(input_plane, output_plane, params['wavelength'])
+            prop_type = 'asm'
             propagator = Propagator(input_plane, output_plane, transfer_function, 'asm')
         else:
             logger.debug("Using RSC propagator")
+            prop_type = 'rsc'
             transfer_function = self.init_rsc_transfer_function(input_plane, output_plane, params['wavelength'])
-            propagator = Propagator(input_plane, output_plane, transfer_function, 'rsc')
 
+        propagator = Propagator(input_plane, output_plane, transfer_function, prop_type)
         return propagator
 
 
@@ -340,12 +171,24 @@ class PropagatorFactory():
         # Get the distance between the input and output planes.
         distance = torch.norm(output_plane.center - input_plane.center)
 
+        # Get the x-y shift between the input and output planes.
+        shift = output_plane.center - input_plane.center
+        x_shift = shift[0]
+        y_shift = shift[1]
+
         H = torch.exp(1j * distance * fz)
+
+        # Normalize the transfer function
         mag = H.abs()
         ang = H.angle()
         mag = mag / torch.max(mag)
         H = mag * torch.exp(1j*ang)
+
+        # Shift the transfer function to account for the shift between the input and output planes.
+        H = H * torch.exp(1j * 2 * torch.pi * (fxx * x_shift + fyy * y_shift))
         H = torch.fft.fftshift(H)
+
+
         H.requrires_grad = False
         return H
 
@@ -369,11 +212,26 @@ class PropagatorFactory():
         h_rsc *= ((1/r) - (1j*k))
         h_rsc *= (1/(2*torch.pi)) * (z/r)
         H = torch.fft.fft2(h_rsc)
+        
+        # Get the fourier dimensions
+        fx = torch.fft.fftfreq(len(x), torch.diff(x)[0])
+        fy = torch.fft.fftfreq(len(y), torch.diff(y)[0])
+        fxx, fyy = torch.meshgrid(fx, fy, indexing='ij')
+
+        # Get the x-y shift between the input and output planes.
+        shift = output_plane.center - input_plane.center
+        x_shift = shift[0]
+        y_shift = shift[1]
+
+        # Normalize the transfer function
         mag = H.abs()
         ang = H.angle()
-        
         mag = mag / torch.max(mag)
         H = mag * torch.exp(1j*ang)
+
+        # Shift the transfer function to account for the shift between the input and output planes.
+        H = H * torch.exp(1j * 2 * torch.pi * (fxx * x_shift + fyy * y_shift))
+
         H.requrires_grad = False
         return H
 
@@ -393,7 +251,7 @@ class Propagator(pl.LightningModule):
     def forward(self, input_wavefront):
         # Pad the wavefront
         input_wavefront = torch.nn.functional.pad(input_wavefront,self.padding,mode="constant")
-        return self.rotate(self.shift(self.propagate(self.rotate(input_wavefront))))
+        return self.propagate(input_wavefront)
 
     def propagate(self, input_wavefront):
         ###
@@ -432,20 +290,6 @@ class Propagator(pl.LightningModule):
         U = U 
         return U
 
-    def shift(self, input_wavefront):
-        ###
-        # Uses the shift property of the fourier transform to shift the wavefront.
-        ###
-        logger.warning("Shift not implemented")
-        return input_wavefront
-
-    def rotate(self, input_wavefront):
-        ###
-        # Rotates the wavefront to the orientation of the output plane.
-        ###
-        logger.warning("Rotate not implemented")
-        return input_wavefront
-
     def print_info(self):
         logger.debug("Propagator info:")
         logger.debug("Input plane: {}".format(self.input_plane))
@@ -474,7 +318,7 @@ if __name__ == "__main__":
         'Nx': 1080,
         'Ny': 1080,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,9.6e-2])
+        'center': torch.tensor([2.e-3,2.e-3,9.6e-2])
     }
 
     propagator_params = {
@@ -490,7 +334,7 @@ if __name__ == "__main__":
         'Nx': 1080,
         'Ny': 1080,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,9.61e-2])
+        'center': torch.tensor([2.e-3,2.e-3,9.61e-2])
     }
 
     output_plane1 = plane.Plane(output_plane_params1)
@@ -519,12 +363,16 @@ if __name__ == "__main__":
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1,3)
-    axes[0].imshow(wavefront[0,0,:,:].abs().numpy()**2)
+    axes[0].pcolormesh(xx, yy, wavefront[0,0,:,:].abs().numpy())
     axes[0].set_title("Input wavefront")
-    axes[1].imshow(output_wavefront0[0,0,:,:].abs().numpy()**2)
+    axes[1].pcolormesh(xx, yy, output_wavefront0[0,0,:,:].abs().numpy())
     axes[1].set_title("Output wavefront 0")
-    axes[2].imshow(output_wavefront1[0,0,:,:].abs().numpy()**2)
+    axes[2].pcolormesh(xx, yy, output_wavefront1[0,0,:,:].abs().numpy())
     axes[2].set_title("Output wavefront 1")
+
+    # Set the correct aspect ratio
+    for ax in axes:
+        ax.set_aspect('equal')
 
     plt.show()
 
