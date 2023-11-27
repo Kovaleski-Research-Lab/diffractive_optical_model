@@ -33,31 +33,58 @@ class DiffractiveBlock(pl.LightningModule):
 if __name__ == "__main__":
 
     wavelength = torch.tensor(1.55e-6)
-    focal_length = torch.tensor(10.e-2)
+    focal_length0 = torch.tensor(10.e-2)
+    focal_length1 = torch.tensor(20.e-2)
 
-    input_plane0_params = {'name':'plane0', 'center':[0,0,0], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':1080, 'Ny':1080}
-    output_plane0_params = {'name':'plane1', 'center':[0,0,20.e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':1080, 'Ny':1080}
-    output_plane1_params = {'name':'plane3', 'center':[0,0,40.e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':1080, 'Ny':1080}
+    Nx = 1920
+    Ny = 1920
 
-    input_plane0 = Plane(input_plane0_params)
-    output_plane0 = Plane(output_plane0_params)
-    output_plane1 = Plane(output_plane1_params)
+    # Input plane
+    plane0_params = {'name':'plane0', 'center':[0,0,0], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':Nx, 'Ny':Ny}
 
-    lens_phase_pattern = lensPhase(output_plane0, wavelength, focal_length)
+    # Lens 0 plane
+    plane1_params = {'name':'plane1', 'center':[0,0,20e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':Nx, 'Ny':Ny}
+
+    # Image 0 plane
+    plane2_params = {'name':'plane2', 'center':[0,0,30e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':Nx, 'Ny':Ny}
+
+    # Lens 1 plane
+    plane3_params = {'name':'plane3', 'center':[0,0,50e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':Nx, 'Ny':Ny}
+
+    # Image 1 plane
+    plane4_params = {'name':'plane4', 'center':[0,0,55e-2], 'size':[8.96e-3, 8.96e-3], 'normal': [0,0,1], 'Nx':Nx, 'Ny':Ny}
+
+
+    plane0 = Plane(plane0_params)
+    plane1 = Plane(plane1_params)
+    plane2 = Plane(plane2_params)
+    plane3 = Plane(plane3_params)
+    plane4 = Plane(plane4_params)
+
+    lens_phase_pattern0 = lensPhase(plane1, wavelength, focal_length0)
+    lens_phase_pattern1 = lensPhase(plane3, wavelength, focal_length1)
     
     source_mod_params = {
             "amplitude_init": 'uniform',
             "phase_init" : 'uniform',
             "type" : None,
-            "phase_pattern" : lens_phase_pattern,
+            "phase_pattern" : None,
             "amplitude_pattern" : None
         }
  
-    lens_mod_params = {
+    lens0_mod_params = {
             "amplitude_init": 'uniform',
             "phase_init" : 'custom',
             "type" : None,
-            "phase_pattern" : lens_phase_pattern,
+            "phase_pattern" : lens_phase_pattern0,
+            "amplitude_pattern" : None
+        }
+
+    lens1_mod_params = {
+            "amplitude_init": 'uniform',
+            "phase_init" : 'custom',
+            "type" : None,
+            "phase_pattern" : lens_phase_pattern1,
             "amplitude_pattern" : None
         }
 
@@ -65,44 +92,73 @@ if __name__ == "__main__":
             "wavelength" : wavelength,
         }
 
+
+
+    #Source
     params_block0 = {
-            'input_plane' : input_plane0_params,
-            'output_plane' : output_plane0_params,
+            'input_plane' : plane0_params,
+            'output_plane' : plane1_params,
             'modulator_params' : source_mod_params,
             'propagator_params' : propagator_params
             }
     
+    #Lens 0
     params_block1 = {
-            'input_plane' : output_plane0_params,
-            'output_plane' : output_plane1_params,
-            'modulator_params' : lens_mod_params,
+            'input_plane' : plane1_params,
+            'output_plane' : plane2_params,
+            'modulator_params' : lens0_mod_params,
+            'propagator_params' : propagator_params
+            }
+    
+    #Image 0
+    params_block2 = {
+            'input_plane' : plane2_params,
+            'output_plane' : plane3_params,
+            'modulator_params' : source_mod_params,
+            'propagator_params' : propagator_params
+            }
+
+    #Lens 1
+    params_block3 = {
+            'input_plane' : plane3_params,
+            'output_plane' : plane4_params,
+            'modulator_params' : lens1_mod_params,
             'propagator_params' : propagator_params
             }
 
     db0 = DiffractiveBlock(params_block0)
     db1 = DiffractiveBlock(params_block1)
+    db2 = DiffractiveBlock(params_block2)
+    db3 = DiffractiveBlock(params_block3)
+
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
-    xx,yy = input_plane0.xx, input_plane0.yy
+    xx,yy = plane0.xx, plane0.yy
     wavefront = torch.ones_like(xx)
-    wavefront[(xx**2 + yy**2) > (1e-3)**2] = 0
-    wavefront = wavefront.view(1,1,input_plane0.Nx,input_plane0.Ny)
+    wavefront[(xx**2 + yy**2) > (0.2e-3)**2] = 0
+    wavefront = wavefront.view(1,1,plane0.Nx,plane0.Ny)
 
     # Propagate the wavefront
     wavefront0 = db0(wavefront)
     wavefront1 = db1(wavefront0)
+    wavefront2 = db2(wavefront1)
+    wavefront3 = db3(wavefront2)
 
     # Plot the results
     import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(1,3)
+    fig, axs = plt.subplots(1,5)
     axs[0].pcolormesh(xx,yy,wavefront[0,0,:,:].abs().numpy())
     axs[1].pcolormesh(xx,yy,wavefront0[0,0,:,:].abs().numpy())
     axs[2].pcolormesh(xx,yy,wavefront1[0,0,:,:].abs().numpy())
+    axs[3].pcolormesh(xx,yy,wavefront2[0,0,:,:].abs().numpy())
+    axs[4].pcolormesh(xx,yy,wavefront3[0,0,:,:].abs().numpy())
 
     axs[0].set_title('Input')
     axs[1].set_title('Output 0')
     axs[2].set_title('Output 1')
+    axs[3].set_title('Output 2')
+    axs[4].set_title('Output 3')
 
     for ax in axs:
         ax.set_aspect('equal')

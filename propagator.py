@@ -250,7 +250,7 @@ class Propagator(pl.LightningModule):
 
     def forward(self, input_wavefront):
         # Pad the wavefront
-        input_wavefront = torch.nn.functional.pad(input_wavefront,self.padding,mode="constant")
+        input_wavefront = torch.nn.functional.pad(input_wavefront,self.padding,mode="constant") # type: ignore
         return self.propagate(input_wavefront)
 
     def propagate(self, input_wavefront):
@@ -346,7 +346,6 @@ if __name__ == "__main__":
     propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
     propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
 
-
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
     x = torch.linspace(-input_plane.Lx/2, input_plane.Lx/2, input_plane.Nx)
@@ -366,9 +365,17 @@ if __name__ == "__main__":
     axes[0].pcolormesh(xx, yy, wavefront[0,0,:,:].abs().numpy())
     axes[0].set_title("Input wavefront")
     axes[1].pcolormesh(xx, yy, output_wavefront0[0,0,:,:].abs().numpy())
-    axes[1].set_title("Output wavefront 0")
+    axes[1].set_title("Output wavefront for ASM\n x0 = 2mm, y0 = 2mm, z = 9.6cm")
     axes[2].pcolormesh(xx, yy, output_wavefront1[0,0,:,:].abs().numpy())
-    axes[2].set_title("Output wavefront 1")
+    axes[2].set_title("Output wavefront for RSC\n x0 = 2mm, y0 = 2mm, z = 9.61cm")
+
+    axes[0].set_xlabel("x (m)")
+    axes[0].set_ylabel("y (m)")
+    axes[1].set_xlabel("x (m)")
+    axes[1].set_ylabel("y (m)")
+    axes[2].set_xlabel("x (m)")
+    axes[2].set_ylabel("y (m)")
+
 
     # Set the correct aspect ratio
     for ax in axes:
