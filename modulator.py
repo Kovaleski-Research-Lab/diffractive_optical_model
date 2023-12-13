@@ -23,7 +23,7 @@ class oldModulator(pl.LightningModule):
         self.paths = paths.copy()
 
         # Load : General modulator parameters 
-        self.modulator_type = self.params['modulator_type']
+        self.gradients = self.params['gradients']
         self.phase_initialization = self.params['phase_initialization']
         self.amplitude_initialization = self.params['amplitude_initialization']
 
@@ -145,16 +145,16 @@ class oldModulator(pl.LightningModule):
 
     def initialize_gradients(self):
         # Initialize : Parameter gradients 
-        if self.modulator_type =='complex':
+        if self.gradients =='complex':
             logging.debug("Modulator | Keeping all gradients")
             pass
-        elif self.modulator_type == 'phase_only':
+        elif self.gradients == 'phase_only':
             logging.debug("Modulator | Setting amplitude.requires_grad to False")
             self.amplitude.requires_grad = False
-        elif self.modulator_type == 'amplitude_only':
+        elif self.gradients == 'amplitude_only':
             logging.debug("Modulator | Setting phase.requires_grad to False")
             self.phase.requires_grad = False
-        elif self.modulator_type == 'none':
+        elif self.gradients == 'none':
             logging.debug("Modulator | Setting phase.requires_grad to False and amplitude.requires_grad to False")
             self.amplitude.requires_grad = False
             self.phase.requires_grad = False
@@ -308,11 +308,12 @@ class ModulatorFactory():
 
     def create_modulator(self, plane, params):
         logger.debug("Creating modulator")
-        modulator_type = params['type']
+        gradients = params['gradients']
         phase_init = params['phase_init']
         amplitude_init = params['amplitude_init']
         phase_pattern = params['phase_pattern']
         amplitude_pattern = params['amplitude_pattern']
+        self.kwargs = params['kwargs']
 
         if phase_init == 'uniform':
             logger.info("Uniform phase initialization")
@@ -344,19 +345,19 @@ class ModulatorFactory():
             amplitude = self.uniform_amplitude(plane)
             raise Exception('unsupportedInitialization')
 
-        if modulator_type == 'phase_only':
+        if gradients == 'phase_only':
             logger.info("Phase only optimization")
             phase.requires_grad = True
             amplitude.requires_grad = False
-        elif modulator_type == 'amplitude_only':
+        elif gradients == 'amplitude_only':
             logger.info("Amplitude only optimization")
             phase.requires_grad = False
             amplitude.requires_grad = True
-        elif modulator_type == 'complex':
+        elif gradients == 'complex':
             logger.info("Phase and amplitude optimization")
             phase.requires_grad = True
             amplitude.requires_grad = True
-        elif modulator_type == None:
+        elif gradients == None:
             logger.info("No modulator optimization")
             phase.requires_grad = False
             amplitude.requires_grad = False
@@ -392,13 +393,29 @@ class ModulatorFactory():
         amplitude = torch.ones(Nx, Ny)
         return amplitude
 
-    def custom_phase(self, plane:plane.Plane, phase_pattern:torch.Tensor) -> torch.Tensor:
-        Nx, Ny = plane.Nx, plane.Ny
-        phase = phase_pattern
-        shape = phase.shape
-        assert Nx == shape[-2]
-        assert Ny == shape[-1]
-        return phase
+    def custom_phase(self, plane:plane.Plane, phase_pattern) -> torch.Tensor:
+        logger.debug("Creating custom phase")
+        # If the phase is a torch tensor
+        if isinstance(phase_pattern, torch.Tensor):
+            Nx, Ny = plane.Nx, plane.Ny
+            phase = phase_pattern
+            shape = phase.shape
+            assert Nx == shape[-2]
+            assert Ny == shape[-1]
+        # If it is a string
+        elif isinstance(phase_pattern, str):
+            if phase_pattern == 'lens':
+                #Get the focal length and wavelength from the kwargs
+                focal_length = torch.tensor(self.kwargs['focal_length'])
+                wavelength = torch.tensor(self.kwargs['wavelength'])
+                #Create the lens phase
+                phase = lensPhase(plane, wavelength, focal_length) 
+        else:
+            logger.warning("Unsupported phase pattern : {}".format(phase_pattern))
+            logger.warning("Setting uniform phase pattern")
+            phase = self.uniform_phase(plane)
+            raise Exception('unsupportedInitialization')
+        return phase # type: ignore
 
     def custom_amplitude(self, plane:plane.Plane, amplitude_pattern:torch.Tensor) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
@@ -408,8 +425,6 @@ class ModulatorFactory():
         assert Ny == shape[-1]
         return amplitude
 
-
-
 class Modulator(pl.LightningModule):
     def __init__(self, plane:plane.Plane, amplitude:torch.Tensor, phase:torch.Tensor):
         super().__init__()
@@ -418,13 +433,55 @@ class Modulator(pl.LightningModule):
         self.phase = torch.nn.Parameter(phase)
         self.transmissivity = amplitude * torch.exp(1j * phase)
 
-    def forward(self, input_wavefront:torch.Tensor) -> torch.Tensor:
-        return input_wavefront * self.transmissivity
+    def forward(self, input_wavefront = None) -> torch.Tensor:
+        if input_wavefront is None:
+            return self.transmissivity
+        else:
+            return input_wavefront * self.transmissivity
     
     def print_info(self):
         self.plane.print_info()
         logger.info("Amplitude shape : {}".format(self.amplitude.shape))
         logger.info("Phase shape : {}".format(self.phase.shape))
+
+    #--------------------------------
+    # Setters
+    #--------------------------------
+
+    def set_amplitude(self, amplitude:torch.Tensor) -> None:
+        self.amplitude = torch.nn.Parameter(amplitude)
+        self.transmissivity = amplitude * torch.exp(1j * self.phase)
+
+    def set_phase(self, phase:torch.Tensor) -> None:
+        self.phase = torch.nn.Parameter(phase)
+        self.transmissivity = self.amplitude * torch.exp(1j * phase)
+
+    def set_transmissivity(self, transmissivity:torch.Tensor) -> None:
+        self.transmissivity = transmissivity
+        self.amplitude = torch.abs(transmissivity)
+        self.phase = torch.angle(transmissivity)
+
+    #--------------------------------
+    # Getters
+    #--------------------------------
+
+    def get_amplitude(self, with_grad:bool=True) -> torch.Tensor:
+        if with_grad:
+            return self.amplitude
+        else:
+            return self.amplitude.detach()
+
+    def get_phase(self, with_grad:bool=True) -> torch.Tensor:
+        if with_grad:
+            return self.phase
+        else:
+            return self.phase.detach()
+
+    def get_transmissivity(self, with_grad:bool=True) -> torch.Tensor:
+        if with_grad:
+            return self.transmissivity
+        else:
+            return self.transmissivity.detach()
 
 #--------------------------------
 # Custom modulator functions

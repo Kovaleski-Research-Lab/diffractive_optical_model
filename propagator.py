@@ -59,16 +59,17 @@ class PropagatorFactory():
         # Check: The distance between the centers of input and output planes. If the distance
         # is less than the ASM distance, use the RSC propagator. Otherwise, use
         # the ASM propagator.
+        wavelength = torch.tensor(params['wavelength'])
         distance = torch.norm(output_plane.center - input_plane.center)
         if self.check_asm_distance(input_plane, output_plane, params):
             logger.debug("Using ASM propagator")
-            transfer_function = self.init_asm_transfer_function(input_plane, output_plane, params['wavelength'])
+            transfer_function = self.init_asm_transfer_function(input_plane, output_plane, wavelength)
             prop_type = 'asm'
             propagator = Propagator(input_plane, output_plane, transfer_function, 'asm')
         else:
             logger.debug("Using RSC propagator")
             prop_type = 'rsc'
-            transfer_function = self.init_rsc_transfer_function(input_plane, output_plane, params['wavelength'])
+            transfer_function = self.init_rsc_transfer_function(input_plane, output_plane, wavelength)
 
         propagator = Propagator(input_plane, output_plane, transfer_function, prop_type)
         return propagator
@@ -129,7 +130,7 @@ class PropagatorFactory():
         logger.debug("Checking ASM propagation criteria")
         #10.1364/JOSAA.401908 equation 32
         #Checks distance criteria for sampling considerations
-        wavelength = params['wavelength']
+        wavelength = torch.tensor(params['wavelength'])
         delta_x = input_plane.delta_x
         delta_y = input_plane.delta_y
         Nx = input_plane.Nx

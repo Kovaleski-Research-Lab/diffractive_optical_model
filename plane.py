@@ -6,10 +6,15 @@ class Plane():
     def __init__(self, params:dict)->None:
         self.name = params['name']
         logger.debug("Initializing plane {}".format(self.name))
-        self.center_x, self.center_y, self.center_z = params['center']
+
+        self.center_x, self.center_y, self.center_z = torch.tensor(params['center'])
         self.Lx, self.Ly = params['size']
         self.Nx = params['Nx']
         self.Ny = params['Ny']
+        
+        # Fix types
+        self.fix_types()
+
         self.center = torch.tensor([self.center_x, self.center_y, self.center_z])
         self.size = torch.tensor([self.Lx, self.Ly])
         self.normal = torch.tensor(params['normal']).float()
@@ -20,6 +25,16 @@ class Plane():
         self.rot = self.create_rotation_matrix(self.normal, torch.tensor([0,0,1]))
 
         self.build_plane()
+
+    def fix_types(self):
+        logger.debug("Fixing types for plane {}".format(self.name))
+        self.center_x = torch.tensor(self.center_x).float()
+        self.center_y = torch.tensor(self.center_y).float()
+        self.center_z = torch.tensor(self.center_z).float()
+        self.Lx = torch.tensor(self.Lx).float()
+        self.Ly = torch.tensor(self.Ly).float()
+        self.Nx = torch.tensor(self.Nx).int()
+        self.Ny = torch.tensor(self.Ny).int()
 
     def build_plane(self)->None:
         logger.debug("Building plane {}".format(self.name))

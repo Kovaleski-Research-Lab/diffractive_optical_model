@@ -118,7 +118,6 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
 # Initialize: Custom dataset
 #--------------------------------
 
-
 class customDataset(Dataset):
     def __init__(self, data, transform):
         logger.debug("Initializing customDataset")
@@ -177,16 +176,12 @@ if __name__=="__main__":
     params = yaml.load(open('config.yaml'), Loader = yaml.FullLoader).copy()
     params['batch_size'] = 3
     params['model_id'] = "test_0"
-    #params['path_data'] = '/home/marshall/Documents/research/deep-optics/data/'
-
-    #Parameter manager
     
     dm = select_data(params)
     dm.prepare_data()
     dm.setup(stage="fit")
 
     #View some of the data
-
     images,slm_sample, labels = next(iter(dm.train_dataloader()))
 
     print(images[0])

@@ -7,10 +7,6 @@ model_id: 'early_testing'
 demo: True
 
 torch_home: '~/.cache/torch/'
-#torch_home: '/develop/data/resolution_constrained_deep_optics/pretrained_models/'
-
-#don: False
-#classifier: False
 
 #--------------------------------
 #       Training Params
@@ -27,12 +23,12 @@ valid_rate: 1
 
 paths: &id001
   #path_root: '/home/mblgh6/Documents/research/'
-  #path_root: '/home/marshall/Documents/research/diffractive_optical_model/'
-  path_root: '/Users/marshalllindsay/research/diffractive_optical_model/'
+  path_root: '/home/marshall/Documents/research/'
+  #path_root: '/Users/marshalllindsay/research/diffractive_optical_model/'
   path_bench: 'optics_bench'
-  path_sim: 'diffractive_optic_simulator'
+  path_sim: 'diffractive_optical_model'
   
-  path_data: 'data/'
+  path_data: 'deep_optics/data/'
   path_train: 'train/'
   path_valid: 'valid/'
   path_model: 'my_models/'
@@ -51,7 +47,7 @@ num_layers_classifier: 1
 name_classifier: 'resnet18'
 optimizer_classifier: 'ADAM'
 learning_rate_classifier: 0.001
-transfer_learn_classifier: False
+transfer_learn_classifier: True
 load_checkpoint_classifier: False
 objective_function_classifier: 'cross_entropy'
 
@@ -167,3 +163,61 @@ don:
       load_calibration: False
       path_calibration: 'none'
       calibration_name: 'none'
+
+# Start of new parameters
+planes:
+  0: &idpl00
+    name: 'plane0'
+    center: [0,0,0]
+    size: [8.96e-3, 15.36e-3]
+    normal: [0,0,1]
+    Nx: 1080
+    Ny: 1920
+  1: &idpl01
+    name: 'plane1'
+    center: [0,0,20.e-2]
+    size: [8.96e-3, 15.36e-3]
+    normal: [0,0,1]
+    Nx: 1080
+    Ny: 1920
+  2: &idpl02
+    name: 'plane2'
+    center: [0,0,40.e-2]
+    size: [8.96e-3, 15.36e-3]
+    normal: [0,0,1]
+    Nx: 1080
+    Ny: 1920
+
+modulators:
+  0: &idm00
+    amplitude_init : 'uniform'
+    phase_init : 'uniform'
+    gradients : 'none'
+    phase_pattern : None
+    amplitude_pattern : None
+    kwargs:
+  1: &idm01
+    amplitude_init : 'uniform'
+    phase_init : 'custom'
+    gradients : 'none'
+    phase_pattern : 'lens'
+    amplitude_pattern : None
+    kwargs:
+      focal_length: 10.e-2
+      wavelength: 1.55e-6 
+
+propagator: &idprop
+  wavelength: 1.55e-6
+
+diffraction_blocks:
+  0:
+    input_plane : *idpl00
+    output_plane : *idpl01
+    modulator_params : *idm00
+    propagator_params : *idprop
+  1:
+    input_plane : *idpl01
+    output_plane : *idpl02
+    modulator_params : *idm01
+    propagator_params : *idprop
+
