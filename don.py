@@ -32,7 +32,10 @@ class DON(LightningModule):
     def __init__(self, params:dict) -> None:
         super().__init__()
         self.params = params
+        self.training_params = params['don']
+        self.select_objective()
         self.create_layers()
+        self.learning_rate = self.training_params['learning_rate']
         self.save_hyperparameters()
     
     #--------------------------------
@@ -44,14 +47,13 @@ class DON(LightningModule):
         for block in self.params['diffraction_blocks']:
             block_params = self.params['diffraction_blocks'][block]
             self.layers.append(DiffractionBlock(block_params))
-        pass
 
     #--------------------------------
     # Select: Objective Function
     #--------------------------------
    
     def select_objective(self):
-        objective_function = self.params['objective_function_don']
+        objective_function = self.training_params['objective_function']
         if objective_function == "mse":
             self.similarity_metric = False
             self.objective_function = torchmetrics.functional.mean_squared_error
@@ -65,7 +67,7 @@ class DON(LightningModule):
             self.objective_function = torchmetrics.functional.structural_similarity_index_measure
             logger.debug("DON | setting objective function to {}".format(objective_function))
         else:
-            logger.error("Objective function : {} not supported".format(self.params['objective_function']))
+            logger.error("Objective function : {} not supported".format(self.training_params['objective_function']))
             exit()
 
     #--------------------------------
@@ -134,10 +136,9 @@ class DON(LightningModule):
     #--------------------------------
       
     def shared_step(self, batch, batch_idx):
-        samples, targets = batch
+        samples, slm_sample, targets = batch
 
         self.layers[0].modulator.set_amplitude(samples.abs())
-        from IPython import embed; embed()
 
         output_wavefronts = self.forward()
 
@@ -152,12 +153,12 @@ class DON(LightningModule):
              
     def training_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
-        loss = self.objective(outputs['images'],targets)
+        loss = self.objective(outputs['images'], batch[0].squeeze().abs()**2)
         self.log("train_loss", loss, prog_bar = True) #type: ignore
 
-        # Detach the tensors in the outputs dictionary 
-        for key in outputs:
-            outputs[key] = outputs[key].detach()
+        ## Detach the tensors in the outputs dictionary 
+        #for key in outputs:
+        #    outputs[key] = outputs[key].detach()
 
         return { 'loss' : loss, 'outputs' : outputs, 'target' : targets.detach() }
    
@@ -167,13 +168,13 @@ class DON(LightningModule):
                 
     def validation_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
-        loss = self.objective(outputs['images'],targets)
+        loss = self.objective(outputs['images'], batch[0].squeeze().abs()**2)
 
         self.log("val_loss", loss, prog_bar = True) #type: ignore
 
         # Detach the tensors in the outputs dictionary
-        for key in outputs:
-            outputs[key] = outputs[key].detach()
+        #for key in outputs:
+        #    outputs[key] = outputs[key].detach()
 
         return { 'loss' : loss, 'output' : outputs, 'target' : targets.detach() }
     
@@ -194,8 +195,8 @@ class DON(LightningModule):
         outputs, targets = self.shared_step(batch, batch_idx)
         
         # Detach the tensors in the outputs dictionary
-        for key in outputs:
-            outputs[key] = outputs[key].detach()
+        #for key in outputs:
+        #    outputs[key] = outputs[key].detach()
 
         return { 'output' : outputs, 'target' : targets.detach() }
 
@@ -225,6 +226,7 @@ if __name__ == "__main__":
     image,slm_sample,labels = next(iter(dm.train_dataloader()))
 
     network = DON(params)
+
 
     outputs = network.shared_step((image,labels), 0)
 

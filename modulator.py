@@ -357,7 +357,7 @@ class ModulatorFactory():
             logger.info("Phase and amplitude optimization")
             phase.requires_grad = True
             amplitude.requires_grad = True
-        elif gradients == None:
+        elif gradients == 'none':
             logger.info("No modulator optimization")
             phase.requires_grad = False
             amplitude.requires_grad = False
@@ -429,15 +429,14 @@ class Modulator(pl.LightningModule):
     def __init__(self, plane:plane.Plane, amplitude:torch.Tensor, phase:torch.Tensor):
         super().__init__()
         self.plane = plane
-        self.amplitude = torch.nn.Parameter(amplitude)
-        self.phase = torch.nn.Parameter(phase)
-        self.transmissivity = amplitude * torch.exp(1j * phase)
+        self.amplitude = torch.nn.Parameter(amplitude, amplitude.requires_grad)
+        self.phase = torch.nn.Parameter(phase, phase.requires_grad)
 
     def forward(self, input_wavefront = None) -> torch.Tensor:
+        transmissivity = self.amplitude * torch.exp(1j * self.phase)
         if input_wavefront is None:
-            return self.transmissivity
-        else:
-            return input_wavefront * self.transmissivity
+            input_wavefront = torch.ones_like(self.amplitude)
+        return input_wavefront * transmissivity
     
     def print_info(self):
         self.plane.print_info()
