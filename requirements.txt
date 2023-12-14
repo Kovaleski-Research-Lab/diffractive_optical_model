@@ -1,0 +1,8 @@
+torchvision
+torchmetrics
+pytorch-lightning
+numpy
+matplotlib
+loguru
+ipython
+pyyaml

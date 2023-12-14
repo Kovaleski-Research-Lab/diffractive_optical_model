@@ -129,6 +129,7 @@ class DON(LightningModule):
                 u = layer()
             else:
                 u = layer(u)
+        u = torch.rot90(u, 2, [-2,-1])
         return u
  
     #--------------------------------
@@ -169,7 +170,6 @@ class DON(LightningModule):
     def validation_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
         loss = self.objective(outputs['images'], batch[0].squeeze().abs()**2)
-
         self.log("val_loss", loss, prog_bar = True) #type: ignore
 
         # Detach the tensors in the outputs dictionary
@@ -227,8 +227,9 @@ if __name__ == "__main__":
 
     network = DON(params)
 
+    outputs = network.shared_step((image,image,labels), 0)
 
-    outputs = network.shared_step((image,labels), 0)
+    from IPython import embed; embed()
 
     output_wavefronts, amplitudes, normalized_amplitudes, images, normalized_images, target = outputs[0]['output_wavefronts'], outputs[0]['amplitudes'], outputs[0]['normalized_amplitudes'], outputs[0]['images'], outputs[0]['normalized_images'], outputs[1]
      
@@ -258,4 +259,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
+
+    mse_vals = mse(normalized_images.squeeze().detach(), image.abs().squeeze().detach()**2)
+    print(mse_vals)
 

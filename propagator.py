@@ -189,7 +189,6 @@ class PropagatorFactory():
         H = H * torch.exp(1j * 2 * torch.pi * (fxx * x_shift + fyy * y_shift))
         H = torch.fft.fftshift(H)
 
-
         H.requrires_grad = False
         return H
 
@@ -243,7 +242,7 @@ class Propagator(pl.LightningModule):
         self.output_plane = output_plane
         self.transfer_function = transfer_function
         self.prop_type = prop_type
-        self.H = transfer_function
+        self.register_buffer('H', self.transfer_function)
         self.cc = torchvision.transforms.CenterCrop((int(input_plane.Nx), int(input_plane.Ny)))
         padx = torch.div(input_plane.Nx, 2, rounding_mode='trunc')
         pady = torch.div(input_plane.Ny, 2, rounding_mode='trunc')
@@ -268,7 +267,7 @@ class Propagator(pl.LightningModule):
         return self.cc(output_wavefront)
 
     def asm_propagate(self, input_wavefront):
-        logger.debug("Propagating using ASM")
+        #logger.debug("Propagating using ASM")
         ###
         # Propagates the wavefront using the angular spectrum method.
         ###
@@ -280,7 +279,7 @@ class Propagator(pl.LightningModule):
         return U
 
     def rsc_propagate(self, input_wavefront):
-        logger.debug("Propagating using RSC")
+        #logger.debug("Propagating using RSC")
         ###
         # Propagates the wavefront using the rayleigh-sommerfeld convolution.
         ###

@@ -58,7 +58,7 @@ def run(params):
     if(params['gpu_config'][0] and torch.cuda.is_available()):
         logging.debug("Training with GPUs")
         trainer = Trainer(accelerator = "cuda", num_nodes = 1, 
-                          check_val_every_n_epoch = 1, num_sanity_val_steps = 1,
+                          num_sanity_val_steps = 1,
                           devices = gpu_list, max_epochs = num_epochs, 
                           deterministic=True, enable_progress_bar=True, enable_model_summary=True,
                           default_root_dir = path_root, callbacks = [checkpoint_callback],
@@ -66,7 +66,6 @@ def run(params):
     else:
         logging.debug("Training with CPUs")
         trainer = Trainer(accelerator = "cpu", max_epochs = num_epochs, 
-                          detect_anomaly = True,
                           num_sanity_val_steps = 0, default_root_dir = path_results, 
                           check_val_every_n_epoch = 1, callbacks = [checkpoint_callback])
 

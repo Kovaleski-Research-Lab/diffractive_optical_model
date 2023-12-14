@@ -375,7 +375,7 @@ class ModulatorFactory():
     #----------------------
     def random_phase(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
-        phase = torch.rand(Nx, Ny) * torch.pi * 2
+        phase = torch.rand(1,1,Nx, Ny)
         return phase
 
     def random_amplitude(self, plane:plane.Plane) -> torch.Tensor:
@@ -433,7 +433,7 @@ class Modulator(pl.LightningModule):
         self.phase = torch.nn.Parameter(phase, phase.requires_grad)
 
     def forward(self, input_wavefront = None) -> torch.Tensor:
-        transmissivity = self.amplitude * torch.exp(1j * self.phase)
+        transmissivity = self.amplitude * torch.exp(1j * 2 * torch.pi * self.phase)
         if input_wavefront is None:
             input_wavefront = torch.ones_like(self.amplitude)
         return input_wavefront * transmissivity
@@ -449,11 +449,11 @@ class Modulator(pl.LightningModule):
 
     def set_amplitude(self, amplitude:torch.Tensor) -> None:
         self.amplitude = torch.nn.Parameter(amplitude)
-        self.transmissivity = amplitude * torch.exp(1j * self.phase)
+        self.transmissivity = self.amplitude * torch.exp(1j * 2 * torch.pi * self.phase)
 
     def set_phase(self, phase:torch.Tensor) -> None:
         self.phase = torch.nn.Parameter(phase)
-        self.transmissivity = self.amplitude * torch.exp(1j * phase)
+        self.transmissivity = self.amplitude * torch.exp(1j * 2 * torch.pi * self.phase)
 
     def set_transmissivity(self, transmissivity:torch.Tensor) -> None:
         self.transmissivity = transmissivity
