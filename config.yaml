@@ -124,7 +124,7 @@ planes:
     Ny: 1080
   2: &idpl02
     name: 'plane2'
-    center: [0,0,40.e-2]
+    center: [1.e-2,0,40.e-2]
     size: [8.96e-3, 8.96e-3]
     normal: [0,0,1]
     Nx: 1080
