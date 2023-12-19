@@ -121,14 +121,10 @@ class DON(LightningModule):
     # Create: Forward Pass
     #--------------------------------
    
-    def forward(self):
-        u = None
+    def forward(self, u:torch.Tensor):
         # Iterate through the layers
         for i,layer in enumerate(self.layers):
-            if i == 0:
-                u = layer()
-            else:
-                u = layer(u)
+            u = layer(u)
         u = torch.rot90(u, 2, [-2,-1])
         return u
  
@@ -139,9 +135,7 @@ class DON(LightningModule):
     def shared_step(self, batch, batch_idx):
         samples, slm_sample, targets = batch
 
-        self.layers[0].modulator.set_amplitude(samples.abs())
-
-        output_wavefronts = self.forward()
+        output_wavefronts = self.forward(samples)
 
         # Get auxiliary outputs
         outputs = self.calculate_auxiliary_outputs(output_wavefronts)
@@ -226,6 +220,13 @@ if __name__ == "__main__":
     image,slm_sample,labels = next(iter(dm.train_dataloader()))
 
     network = DON(params)
+
+    model_params = torch.load('results/my_models/early_testing/epoch=49-step=62500.ckpt')
+    state_dict = model_params['state_dict']
+
+    phase = state_dict['layers.1.modulator.phase'].cpu()
+
+    network.layers[1].modulator.phase = torch.nn.Parameter(phase)
 
     outputs = network.shared_step((image,image,labels), 0)
 

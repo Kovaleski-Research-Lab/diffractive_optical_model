@@ -12,7 +12,7 @@ torch_home: '~/.cache/torch/'
 #--------------------------------
 
 batch_size: 8
-num_epochs: 50
+num_epochs: 5
 accelerator: 'gpu' 
 gpu_config: [True, [0]]
 valid_rate: 1
@@ -116,7 +116,7 @@ planes:
     Ny: 1080
   1: &idpl01
     name: 'plane1'
-    center: [0,0,10.e-2]
+    center: [0,0,20.e-2]
       #size: [8.96e-3, 15.36e-3]
     size: [8.96e-3, 8.96e-3]
     normal: [0,0,1]
@@ -124,7 +124,7 @@ planes:
     Ny: 1080
   2: &idpl02
     name: 'plane2'
-    center: [0,0,20.e-2]
+    center: [0,0,40.e-2]
     size: [8.96e-3, 8.96e-3]
     normal: [0,0,1]
     Nx: 1080
@@ -145,7 +145,7 @@ modulators:
     phase_pattern : 'lens'
     amplitude_pattern : None
     kwargs:
-      focal_length: 5.e-2
+      focal_length: 10.e-2
       wavelength: 1.55e-6 
 
 propagator: &idprop
@@ -166,7 +166,7 @@ diffraction_blocks:
 
 don:
   optimizer: 'ADAM'
-  learning_rate: 1.e-3
+  learning_rate: 3.e-1
   transfer_learn: False
   load_checkpoint: False
   objective_function: 'mse'

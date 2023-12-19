@@ -142,7 +142,7 @@ class customDataset(Dataset):
         sample = self.transform(sample)
         #target = self.transform(target)
         slm_sample = (sample.abs() * 63).to(torch.uint8)
-        
+
         #target = torch.nn.functional.one_hot(torch.tensor(target), num_classes=10)
 
         return sample, slm_sample, target

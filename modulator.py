@@ -433,9 +433,10 @@ class Modulator(pl.LightningModule):
         self.phase = torch.nn.Parameter(phase, phase.requires_grad)
 
     def forward(self, input_wavefront = None) -> torch.Tensor:
-        transmissivity = self.amplitude * torch.exp(1j * 2 * torch.pi * self.phase)
+        transmissivity = self.amplitude * torch.exp(1j *self.phase)
         if input_wavefront is None:
             input_wavefront = torch.ones_like(self.amplitude)
+
         return input_wavefront * transmissivity
     
     def print_info(self):
