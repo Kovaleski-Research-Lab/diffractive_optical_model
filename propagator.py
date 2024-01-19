@@ -7,7 +7,7 @@ from loguru import logger
 import torchvision
 import pytorch_lightning as pl
 
-import plane
+from . import plane
 
 #--------------------------------
 # Class: PropagatorFactory

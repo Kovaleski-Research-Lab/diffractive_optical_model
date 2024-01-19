@@ -4,9 +4,9 @@ from loguru import logger
 import pytorch_lightning as pl
 
 # Custom library imports
-from plane import Plane
-from modulator import lensPhase, ModulatorFactory
-from propagator import PropagatorFactory
+from . import plane
+from . import modulator
+from . import propagator
 
 class DiffractionBlock(pl.LightningModule):
     def __init__(self, params):
@@ -17,11 +17,11 @@ class DiffractionBlock(pl.LightningModule):
         modulator_params = params['modulator_params']
         propagator_params = params['propagator_params']
 
-        input_plane = Plane(input_plane_params)
-        output_plane = Plane(output_plane_params)
+        input_plane = plane.Plane(input_plane_params)
+        output_plane = plane.Plane(output_plane_params)
 
-        modulator_factory = ModulatorFactory()
-        propagator_factory = PropagatorFactory()
+        modulator_factory = modulator.ModulatorFactory()
+        propagator_factory = propagator.PropagatorFactory()
 
         self.modulator = modulator_factory(input_plane, modulator_params)
         self.propagator = propagator_factory(input_plane, output_plane, propagator_params)
@@ -39,10 +39,10 @@ if __name__ == "__main__":
 
     focal_length0 = torch.tensor(10.e-2)
 
-    plane0 = Plane(config['planes'][0])
-    plane1 = Plane(config['planes'][1])
+    plane0 = plane.Plane(config['planes'][0])
+    plane1 = plane.Plane(config['planes'][1])
 
-    lens_phase_pattern0 = lensPhase(plane1, wavelength, focal_length0)
+    lens_phase_pattern0 = modulator.lensPhase(plane1, wavelength, focal_length0)
 
     propagator_params = config['propagator']
 
