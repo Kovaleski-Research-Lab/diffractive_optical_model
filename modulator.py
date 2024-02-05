@@ -8,7 +8,8 @@ from IPython import embed
 from loguru import logger
 import pytorch_lightning as pl
 
-import plane
+
+from . import plane
 
 #--------------------------------
 # Initialize: Wavefront Modulator
