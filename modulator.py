@@ -8,7 +8,6 @@ from IPython import embed
 from loguru import logger
 import pytorch_lightning as pl
 
-
 from . import plane
 
 #--------------------------------
@@ -398,6 +397,7 @@ class ModulatorFactory():
         logger.debug("Creating custom phase")
         # If the phase is a torch tensor
         if isinstance(phase_pattern, torch.Tensor):
+            logger.debug("Phase pattern is a custom torch tensor")
             Nx, Ny = plane.Nx, plane.Ny
             phase = phase_pattern
             shape = phase.shape
@@ -406,6 +406,7 @@ class ModulatorFactory():
         # If it is a string
         elif isinstance(phase_pattern, str):
             if phase_pattern == 'lens':
+                logger.debug("Phase pattern is a lens")
                 #Get the focal length and wavelength from the kwargs
                 focal_length = torch.tensor(self.kwargs['focal_length'])
                 wavelength = torch.tensor(self.kwargs['wavelength'])

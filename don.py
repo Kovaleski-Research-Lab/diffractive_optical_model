@@ -2,6 +2,8 @@
 # Import: Basic Python Libraries
 #--------------------------------
 
+import os
+import sys
 import torch
 from loguru import logger
 import torchmetrics
@@ -18,10 +20,11 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 #--------------------------------
 # Import: Custom Python Libraries
 #--------------------------------
-from modulator import *
-from propagator import *
-from plane import *
-from diffraction_block import *
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+from . import modulator
+from . import propagator
+from . import plane
+from . import diffraction_block
 
 
 #-----------------------------------
@@ -46,7 +49,7 @@ class DON(LightningModule):
         self.layers = torch.nn.ModuleList()
         for block in self.params['diffraction_blocks']:
             block_params = self.params['diffraction_blocks'][block]
-            self.layers.append(DiffractionBlock(block_params))
+            self.layers.append(diffraction_block.DiffractionBlock(block_params))
 
     #--------------------------------
     # Select: Objective Function

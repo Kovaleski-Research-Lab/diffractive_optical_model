@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 import sys
 sys.path.append('../')
-import custom_transforms as ct
+from . import custom_transforms as ct
 
 import torch
 import numpy as np

@@ -11,6 +11,7 @@ class Plane():
         self.Lx, self.Ly = params['size']
         self.Nx = params['Nx']
         self.Ny = params['Ny']
+        self.name = params['name']
         
         # Fix types
         self.fix_types()

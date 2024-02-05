@@ -11,8 +11,7 @@ setup(
     version='0.0.1',
     description='A concise description of your project',
     author='Marshall B. Lindsay',
-    author_email='your_email@example.com',
+    author_email='mblgh6@umsystem.edu',
     packages=find_packages(),
-    install_requires=read_requirements()
 )
 
