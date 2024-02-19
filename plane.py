@@ -49,6 +49,12 @@ class Plane():
 
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
+        # Added these to help with DNI propagation.
+        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*self.Nx)
+        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*self.Ny)
+        self.xx_padded,self.yy_padded = torch.meshgrid(self.x_padded, self.y_padded, indexing='ij')
+
+
     def print_info(self):
         logger.info("Plane {}:".format(self.name))
         logger.info("Center: {}".format(self.center))

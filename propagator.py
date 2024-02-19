@@ -7,7 +7,8 @@ from loguru import logger
 import torchvision
 import pytorch_lightning as pl
 
-from . import plane
+#from . import plane
+import plane
 
 #--------------------------------
 # Class: PropagatorFactory
@@ -20,11 +21,12 @@ class PropagatorFactory():
         logger.debug("Selecting propagator")
         ###
         # Propagator types:
+        #   DNI: Direct numerical integration
         #   ASM: Angular spectrum method
         #   RSC: Rayleigh-Sommerfeld convolution
         #   Shift: Shifted angular spectrum method
-        #   Scaled: Scaled angular spectrum method 
-        #   Rotated: Rotated angular spectrum method
+        #   Scaled: Scaled angular spectrum method #TODO
+        #   Rotated: Rotated angular spectrum method #TODO
 
         # Propagator references:
         #   ASM: 10.1364/JOSAA.401908 
@@ -48,30 +50,47 @@ class PropagatorFactory():
         # methods where the nonuniform fourier transform is used to scale the
         # propagation planes. The choice between ASM and RSC is determined by the
         # distance between the input and output planes.
+        # Note (2/14/2024): The NUFT is not implemented in PyTorch yet. We will probably
+        # have to implement the scaled propagagtor using the chirp-z transform directly.
         ###
 
         # Check: Are the input and output planes tilted? If so, create a rotation
         # matrix to rotate both planes to the same orientation.
         if (input_plane.normal != output_plane.normal).any():
             logger.debug("Input and output planes are tilted. Creating rotation matrix")
+            # This is not used yet
             rot = self.create_rotation_matrix(input_plane.normal, output_plane.normal)
         
         # Check: The distance between the centers of input and output planes. If the distance
         # is less than the ASM distance, use the RSC propagator. Otherwise, use
         # the ASM propagator.
         wavelength = torch.tensor(params['wavelength'])
-        distance = torch.norm(output_plane.center - input_plane.center)
-        if self.check_asm_distance(input_plane, output_plane, params):
-            logger.debug("Using ASM propagator")
-            transfer_function = self.init_asm_transfer_function(input_plane, output_plane, wavelength)
-            prop_type = 'asm'
-            propagator = Propagator(input_plane, output_plane, transfer_function, 'asm')
-        else:
-            logger.debug("Using RSC propagator")
-            prop_type = 'rsc'
-            transfer_function = self.init_rsc_transfer_function(input_plane, output_plane, wavelength)
 
-        propagator = Propagator(input_plane, output_plane, transfer_function, prop_type)
+        if params['prop_type'] == 'dni':
+            logger.debug("Using DNI propagation")
+            prop_function = None
+            prop_type = 'dni'
+        elif params['prop_type'] == 'asm':
+            logger.debug("Using ASM propagation")
+            prop_function = self.init_asm_transfer_function(input_plane, output_plane, wavelength)
+            prop_type = 'asm'
+        elif params['prop_type'] == 'rsc':
+            logger.debug("Using RSC propagation")
+            prop_function = self.init_rsc_transfer_function(input_plane, output_plane, wavelength)
+            prop_type = 'rsc'
+        elif params['prop_type'] == None and self.check_asm_distance(input_plane, output_plane, params):
+            logger.debug("Using ASM propagator")
+            prop_function = self.init_asm_transfer_function(input_plane, output_plane, wavelength)
+            prop_type = 'asm'
+        elif params['prop_type'] == None:
+            logger.debug("Using RSC propagator")
+            prop_function = self.init_rsc_transfer_function(input_plane, output_plane, wavelength)
+            prop_type = 'rsc'
+        else:
+            logger.error("Invalid propagation type: {}".format(params['prop_type']))
+            raise ValueError("Invalid propagation type: {}".format(params['prop_type']))
+
+        propagator = Propagator(input_plane, output_plane, prop_function, prop_type, wavelength)
         return propagator
 
 
@@ -238,12 +257,13 @@ class PropagatorFactory():
         return H
 
 class Propagator(pl.LightningModule):
-    def __init__(self, input_plane, output_plane, transfer_function, prop_type='asm'):
+    def __init__(self, input_plane, output_plane, transfer_function, prop_type, wavelength):
         super().__init__()
         self.input_plane = input_plane
         self.output_plane = output_plane
         self.transfer_function = transfer_function
         self.prop_type = prop_type
+        self.wavelength = wavelength
         self.register_buffer('H', self.transfer_function)
         self.cc = torchvision.transforms.CenterCrop((int(input_plane.Nx), int(input_plane.Ny)))
         padx = torch.div(input_plane.Nx, 2, rounding_mode='trunc')
@@ -263,6 +283,8 @@ class Propagator(pl.LightningModule):
             output_wavefront = self.asm_propagate(input_wavefront)
         elif self.prop_type == 'rsc':
             output_wavefront = self.rsc_propagate(input_wavefront)
+        elif self.prop_type == 'dni':
+            output_wavefront = self.dni_propagate(input_wavefront)
         else:
             logger.error("Invalid propagation type: {}".format(self.prop_type))
             raise ValueError("Invalid propagation type: {}".format(self.prop_type))
@@ -292,6 +314,30 @@ class Propagator(pl.LightningModule):
         U = U 
         return U
 
+    def dni_propagate(self, input_wavefront):
+        #logger.debug("Propagating using DNI")
+        ###
+        # Propagates the wavefront using direct numerical integration.
+        # I think this assumes axis aligned planes propagating in the z direction
+        ###
+        z_distance = self.input_plane.center[-1] - self.output_plane.center[-1]
+        k = torch.pi * 2 / self.wavelength
+        output_field = input_wavefront.new_empty(input_wavefront.size(), dtype=torch.complex64)
+
+        from IPython import embed; embed()
+       
+        from tqdm import tqdm
+        for i,x in enumerate(tqdm(self.input_plane.x_padded)):
+            for j,y in enumerate(self.input_plane.y_padded):
+                r = torch.sqrt((self.output_plane.xx_padded-x)**2 + (self.output_plane.yy_padded-y)**2 + z_distance**2)
+                chirp = torch.exp(1j * k * r)
+                scalar1 = z_distance / r
+                scalar2 = (( 1 / r) - 1j*k)
+                combined = input_wavefront * chirp * scalar1 * scalar2
+                output_field[:,:,i,j] = combined.sum()
+
+        return output_field
+
     def print_info(self):
         logger.debug("Propagator info:")
         logger.debug("Input plane: {}".format(self.input_plane))
@@ -308,8 +354,8 @@ if __name__ == "__main__":
     input_plane_params = {
         'name': 'input_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 166,
+        'Ny': 166,
         'normal': torch.tensor([0,0,1]),
         'center': torch.tensor([0,0,0])
     }
@@ -317,15 +363,11 @@ if __name__ == "__main__":
     output_plane_params0 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 166,
+        'Ny': 166,
         'normal': torch.tensor([0,0,1]),
         'center': torch.tensor([2.e-3,2.e-3,9.6e-2])
     }
-
-    propagator_params = {
-            'wavelength': torch.tensor(1.55e-6),
-            }
 
     input_plane = plane.Plane(input_plane_params)
     output_plane0 = plane.Plane(output_plane_params0)
@@ -333,8 +375,8 @@ if __name__ == "__main__":
     output_plane_params1 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 166,
+        'Ny': 166,
         'normal': torch.tensor([0,0,1]),
         'center': torch.tensor([2.e-3,2.e-3,9.61e-2])
     }
@@ -342,11 +384,17 @@ if __name__ == "__main__":
     output_plane1 = plane.Plane(output_plane_params1)
 
     propagator_params = {
+        'prop_type': 'asm',
         'wavelength': torch.tensor(1.55e-6),
     }
 
     propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
+
+    propagator_params['prop_type'] = 'rsc'
     propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
+
+    propagator_params['prop_type'] = 'dni'
+    propagator2 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
@@ -360,16 +408,19 @@ if __name__ == "__main__":
     # Propagate the wavefront
     output_wavefront0 = propagator0(wavefront)
     output_wavefront1 = propagator1(wavefront)
+    output_wavefront2 = propagator2(wavefront)
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1,3)
+    fig, axes = plt.subplots(1,4)
     axes[0].pcolormesh(xx, yy, wavefront[0,0,:,:].abs().numpy())
     axes[0].set_title("Input wavefront")
     axes[1].pcolormesh(xx, yy, output_wavefront0[0,0,:,:].abs().numpy())
-    axes[1].set_title("Output wavefront for ASM\n x0 = 2mm, y0 = 2mm, z = 9.6cm")
+    axes[1].set_title("Output wavefront for ASM\n x0 = 0mm, y0 = 0mm, z = 9.6cm")
     axes[2].pcolormesh(xx, yy, output_wavefront1[0,0,:,:].abs().numpy())
-    axes[2].set_title("Output wavefront for RSC\n x0 = 2mm, y0 = 2mm, z = 9.61cm")
+    axes[2].set_title("Output wavefront for RSC\n x0 = 0mm, y0 = 0mm, z = 9.61cm")
+    axes[3].pcolormesh(xx, yy, output_wavefront2[0,0,:,:].abs().numpy())
+    axes[3].set_title("Output wavefront for DNI\n x0 = 0mm, y0 = 0mm, z = 9.61cm")
 
     axes[0].set_xlabel("x (m)")
     axes[0].set_ylabel("y (m)")
@@ -377,6 +428,8 @@ if __name__ == "__main__":
     axes[1].set_ylabel("y (m)")
     axes[2].set_xlabel("x (m)")
     axes[2].set_ylabel("y (m)")
+    axes[3].set_xlabel("x (m)")
+    axes[3].set_ylabel("y (m)")
 
 
     # Set the correct aspect ratio
@@ -384,5 +437,7 @@ if __name__ == "__main__":
         ax.set_aspect('equal')
 
     plt.show()
+
+    from Ipython import embed; embed()
 
 
