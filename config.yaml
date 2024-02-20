@@ -149,6 +149,7 @@ modulators:
       wavelength: 1.55e-6 
 
 propagator: &idprop
+  prop_type: None
   wavelength: 1.55e-6
 
 diffraction_blocks:
