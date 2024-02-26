@@ -97,8 +97,8 @@ def fix_numericals(wavefront):
 if __name__ == "__main__":
 
     # Source plane parameters
-    lx = 20.e-3
-    ly = 20.e-3
+    lx = 8.96e-3
+    ly = 8.96e-3
     nx = 1080
     ny = 1080
 
@@ -114,10 +114,10 @@ if __name__ == "__main__":
     k = 2*np.pi/wavelength
 
     # Destination plane parameters
-    lx_d = 20.e-3
-    ly_d = 20.e-3
-    nx_d = 1080
-    ny_d = 1080
+    lx_d = 8.96e-3
+    ly_d = 8.96e-3
+    nx_d = 2160
+    ny_d = 2160
 
     x_d = np.linspace(-lx_d/2, lx_d/2, nx_d)
     y_d = np.linspace(-ly_d/2, ly_d/2, ny_d)
@@ -128,8 +128,8 @@ if __name__ == "__main__":
     print("dx_d = ", dx_d)
     print("dy_d = ", dy_d)
 
-    fx = np.fft.fftfreq(2*nx, lx/nx)
-    fy = np.fft.fftfreq(2*ny, lx/nx)
+    fx = np.fft.fftfreq(nx, lx/nx)
+    fy = np.fft.fftfreq(ny, lx/nx)
     fxx, fyy = np.meshgrid(fx, fy)
 
     dfx = np.diff(fx)[0]
@@ -286,11 +286,11 @@ if __name__ == "__main__":
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im1, cax=cax, orientation='vertical')
 
-    im2 = ax[2].imshow(np.abs(np.abs(uz)-np.abs(rsc_output)), cmap='jet', vmin=0, vmax=1.)
-    ax[2].set_title('Difference')
-    divider = make_axes_locatable(ax[2])
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    fig.colorbar(im2, cax=cax, orientation='vertical')
+    #im2 = ax[2].imshow(np.abs(np.abs(uz)-np.abs(rsc_output)), cmap='jet', vmin=0, vmax=1.)
+    #ax[2].set_title('Difference')
+    #divider = make_axes_locatable(ax[2])
+    #cax = divider.append_axes('right', size='5%', pad=0.05)
+    #fig.colorbar(im2, cax=cax, orientation='vertical')
 
 
     plt.show()

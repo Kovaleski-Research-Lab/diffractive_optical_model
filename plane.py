@@ -11,7 +11,6 @@ class Plane():
         self.Lx, self.Ly = params['size']
         self.Nx = params['Nx']
         self.Ny = params['Ny']
-        self.name = params['name']
         
         # Fix types
         self.fix_types()
@@ -44,8 +43,8 @@ class Plane():
         self.x = torch.linspace(-x, x, self.Nx)
         self.y = torch.linspace(-y, y, self.Ny)
         
-        self.delta_x = torch.diff(self.x)[0]
-        self.delta_y = torch.diff(self.y)[0]
+        self.delta_x = self.Lx / self.Nx
+        self.delta_y = self.Ly / self.Ny
 
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
@@ -53,6 +52,19 @@ class Plane():
         self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*self.Nx)
         self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*self.Ny)
         self.xx_padded,self.yy_padded = torch.meshgrid(self.x_padded, self.y_padded, indexing='ij')
+
+        # FFT frequencies
+        # Added these to assist with CZT propagation.
+        self.fx = torch.fft.fftfreq(self.Nx, d=self.delta_x)
+        self.fy = torch.fft.fftfreq(self.Ny, d=self.delta_y)
+        self.fxx,self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
+
+        self.delta_fx = torch.diff(self.fx)[0]
+        self.delta_fy = torch.diff(self.fy)[0]
+
+        self.fx_padded = torch.fft.fftfreq(2*self.Nx, d=self.delta_x)
+        self.fy_padded = torch.fft.fftfreq(2*self.Ny, d=self.delta_y)
+        self.fxx_padded,self.fyy_padded = torch.meshgrid(self.fx_padded, self.fy_padded, indexing='ij')
 
 
     def print_info(self):
