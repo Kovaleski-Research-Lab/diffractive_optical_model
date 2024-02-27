@@ -384,6 +384,9 @@ class Propagator(pl.LightningModule):
 
         # Linear convolution of Uzw with D
         R = torch.fft.fft2(Uzw)
+        if self.prop_type == 'asm':
+            R = torch.fft.fftshift(R)
+
         S = torch.fft.fft2(self.D)
         Uzw_d = torch.fft.ifft2(R * S)
         Uzw_d = torch.fft.fftshift(Uzw_d, dim=(-1,-2))
@@ -428,7 +431,7 @@ class Propagator(pl.LightningModule):
 
         if self.czt:
             U = self.czt_ifft(U)
-            U = torch.fft.ifftshift(U, dim=(-1,-2))
+            #U = torch.fft.ifftshift(U, dim=(-1,-2))
         else:
             U = torch.fft.ifftshift(U, dim=(-1,-2))
             U = torch.fft.ifft2(U)
@@ -498,14 +501,24 @@ if __name__ == "__main__":
     output_plane_params0 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 2160,
-        'Ny': 2160,
+        'Nx': 1080,
+        'Ny': 1080,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0.,0.,20e-2])
+        'center': torch.tensor([0.,0.,10e-2])
+    }
+
+    output_plane_params1 = {
+        'name': 'output_plane',
+        'size': torch.tensor([8.96e-3, 8.96e-3]),
+        'Nx': 1080,
+        'Ny': 1080,
+        'normal': torch.tensor([0,0,1]),
+        'center': torch.tensor([0.,0.,10e-2])
     }
 
     input_plane = plane.Plane(input_plane_params)
     output_plane0 = plane.Plane(output_plane_params0)
+    output_plane1 = plane.Plane(output_plane_params1)
 
     propagator_params = {
         'prop_type': None,
@@ -517,7 +530,7 @@ if __name__ == "__main__":
 
     propagator_params['prop_type'] = None
     propagator_params['czt'] = True
-    propagator1 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
+    propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
@@ -534,7 +547,6 @@ if __name__ == "__main__":
     #output_wavefront2 = propagator2(wavefront)
 
     difference = np.abs(output_wavefront0.abs() - output_wavefront1.abs())
-    from IPython import embed; embed()
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
@@ -559,11 +571,11 @@ if __name__ == "__main__":
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im2, cax=cax)
 
-    #im3 = axes[3].imshow(difference[0,0,:,:])
-    #axes[3].set_title("Difference")
-    #divider = make_axes_locatable(axes[3])
-    #cax = divider.append_axes("right", size="5%", pad=0.05)
-    #plt.colorbar(im3, cax=cax)
+    im3 = axes[3].imshow(difference[0,0,:,:], vmin=0, vmax=1)
+    axes[3].set_title("Difference")
+    divider = make_axes_locatable(axes[3])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im3, cax=cax)
 
     axes[0].set_xlabel("x (m)")
     axes[0].set_ylabel("y (m)")

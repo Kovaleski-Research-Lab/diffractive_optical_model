@@ -41,7 +41,7 @@ def create_asm_transfer_function(fxx,fyy,z,k,wavelength):
 def create_rsc_transfer_function(xx,yy,z,k,wavelength):
     r = np.sqrt(xx**2 + yy**2 + z**2) 
     h_rsc = np.exp(np.sign(z) * 1j*k*r)/r
-    h_rsc *= ((1/r) - (1j/k))
+    h_rsc *= ((1/r) - (1j*k))
     h_rsc *= (1/(2*np.pi))*(z/r)
     H = np.fft.fft2(h_rsc)
     return H
@@ -99,8 +99,8 @@ if __name__ == "__main__":
     # Source plane parameters
     lx = 8.96e-3
     ly = 8.96e-3
-    nx = 512
-    ny = 512
+    nx = 1080
+    ny = 1080
 
     x = np.linspace(-lx, lx, 2*nx)
     y = np.linspace(-ly, ly, 2*ny)
@@ -108,16 +108,16 @@ if __name__ == "__main__":
     dx = np.diff(x)[0]
     dy = np.diff(y)[0]
 
-    z = 9.5e-2
+    z = 10.e-2
     wavelength = 1.55e-6
 
     k = 2*np.pi/wavelength
 
     # Destination plane parameters
-    lx_d = 8.96e-3
-    ly_d = 8.96e-3
-    nx_d = 1080
-    ny_d = 1080
+    lx_d = 20e-3
+    ly_d = 20e-3
+    nx_d = 2160
+    ny_d = 2160
 
     x_d = np.linspace(-lx_d/2, lx_d/2, nx_d)
     y_d = np.linspace(-ly_d/2, ly_d/2, ny_d)
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     # Creating U^z of equation 35
     A = np.fft.fft2(input_wavefront)
-    H = create_rsc_transfer_function(xx,yy,z,k,wavelength)
+    #H = create_rsc_transfer_function(xx,yy,z,k,wavelength)
     fig,ax = plt.subplots(1,2,figsize=(10,5))
     im0 = ax[0].imshow(np.abs(H))
     im1 = ax[1].imshow(np.angle(H))
@@ -270,9 +270,26 @@ if __name__ == "__main__":
 
     # Linear convolution of Uzw with D
     R = np.fft.fft2(Uzw)
+    #R = np.fft.fftshift(R)
     S = np.fft.fft2(D)
+
+    fig,ax = plt.subplots(2,2,figsize=(10,5))
+    im0 = ax[0,0].imshow(np.abs(R))
+    im1 = ax[0,1].imshow(np.angle(R))
+    im2 = ax[1,0].imshow(np.abs(S))
+    im3 = ax[1,1].imshow(np.angle(S))
+    fig.suptitle('R and S')
+    plt.show()
+
+
     Uzw_d = np.fft.ifft2(R * S)
-    Uzw_d = np.fft.fftshift(Uzw_d)
+    #Uzw_d = np.fft.fftshift(Uzw_d)
+    fig,ax = plt.subplots(1,2,figsize=(10,5))
+    im0 = ax[0].imshow(np.abs(Uzw_d))
+    im1 = ax[1].imshow(np.angle(Uzw_d))
+    fig.suptitle('Uzw_d')
+    plt.show()
+    
 
     # Crop the result
     Uzw_d = np.pad(Uzw_d, [(1,1), (1,1)], mode='constant')
