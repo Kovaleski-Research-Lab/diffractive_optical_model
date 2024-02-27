@@ -47,7 +47,7 @@ def create_rsc_transfer_function(xx,yy,z,k,wavelength):
     return H
 
 def create_input_wavefront(xx,yy):
-    wavefront = xx**2 + yy**2 < 0.1e-6
+    wavefront = np.sqrt(xx**2 + yy**2) < 0.2e-3
     wavefront = wavefront.astype(np.float64)
     return wavefront
 
@@ -99,16 +99,16 @@ if __name__ == "__main__":
     # Source plane parameters
     lx = 8.96e-3
     ly = 8.96e-3
-    nx = 1080
-    ny = 1080
+    nx = 512
+    ny = 512
 
-    x = np.linspace(-lx/2, lx/2, nx)
-    y = np.linspace(-ly/2, ly/2, ny)
+    x = np.linspace(-lx, lx, 2*nx)
+    y = np.linspace(-ly, ly, 2*ny)
     xx, yy = np.meshgrid(x, y)
     dx = np.diff(x)[0]
     dy = np.diff(y)[0]
 
-    z = 9.6e-2
+    z = 9.5e-2
     wavelength = 1.55e-6
 
     k = 2*np.pi/wavelength
@@ -116,20 +116,20 @@ if __name__ == "__main__":
     # Destination plane parameters
     lx_d = 8.96e-3
     ly_d = 8.96e-3
-    nx_d = 2160
-    ny_d = 2160
+    nx_d = 1080
+    ny_d = 1080
 
     x_d = np.linspace(-lx_d/2, lx_d/2, nx_d)
     y_d = np.linspace(-ly_d/2, ly_d/2, ny_d)
     xx_d, yy_d = np.meshgrid(x_d, y_d)
 
-    dx_d = np.round(lx_d / nx_d, 6)
-    dy_d = np.round(ly_d / ny_d, 6)
+    dx_d = np.round(lx_d / nx_d, 12)
+    dy_d = np.round(ly_d / ny_d, 12)
     print("dx_d = ", dx_d)
     print("dy_d = ", dy_d)
 
-    fx = np.fft.fftfreq(nx, lx/nx)
-    fy = np.fft.fftfreq(ny, lx/nx)
+    fx = np.fft.fftfreq(2*nx, lx/nx)
+    fy = np.fft.fftfreq(2*ny, lx/nx)
     fxx, fyy = np.meshgrid(fx, fy)
 
     dfx = np.diff(fx)[0]
@@ -139,6 +139,8 @@ if __name__ == "__main__":
 
     # Create the input wavefront - a point source
     input_wavefront = create_input_wavefront(xx,yy)
+    plt.imshow(np.abs(input_wavefront))
+    plt.show()
 
     if(not check_distance(nx, ny, dx, dy, z, wavelength)):
         # Create the RSC transfer function
@@ -214,13 +216,21 @@ if __name__ == "__main__":
     # Creating U^z of equation 35
     A = np.fft.fft2(input_wavefront)
     H = create_rsc_transfer_function(xx,yy,z,k,wavelength)
+    fig,ax = plt.subplots(1,2,figsize=(10,5))
+    im0 = ax[0].imshow(np.abs(H))
+    im1 = ax[1].imshow(np.angle(H))
+    fig.suptitle('H')
+    plt.show()
+
+
     A = np.fft.fftshift(A)
     H = np.fft.fftshift(H)
     Uz = A * H
-    Uz = crop_center(Uz, nx, ny)
+    #Uz = crop_center(Uz, nx, ny)
 
-    common_x = Uz.shape[0] + D.shape[0] - 1
-    common_y = Uz.shape[1] + D.shape[1] - 1
+
+    common_x = C.shape[0] + D.shape[0] - 1
+    common_y = C.shape[1] + D.shape[1] - 1
 
     d_padx = (common_x - D.shape[0])//2
     d_pady = (common_y - D.shape[1])//2
@@ -238,10 +248,23 @@ if __name__ == "__main__":
 
     Uz = np.pad(Uz, [(u_padx,u_padx), (u_pady,u_pady)], mode='constant')
     E = np.pad(E, [(d_padx,d_padx), (d_pady,d_pady)], mode='constant')
-    D = np.pad(D, [(d_padx,d_padx), (d_padx,d_pady)], mode='symmetric')
+    D = np.pad(D, [(d_padx,d_padx), (d_padx,d_pady)], mode='wrap')
+
+    fig,ax = plt.subplots(1,3,figsize=(15,5))
+    im0 = ax[0].imshow(np.angle(C))
+    im1 = ax[1].imshow(np.angle(D))
+    im2 = ax[2].imshow(np.angle(E))
+    plt.show()
+
 
     # Scale Uz - they call it U^z_w in the paper
     Uzw = Uz * E / (alpha_x*alpha_y)
+    fig,ax = plt.subplots(1,2,figsize=(10,5))
+    im0 = ax[0].imshow(np.abs(Uzw))
+    im1 = ax[1].imshow(np.angle(Uzw))
+    fig.suptitle('Uzw')
+    plt.show()
+
 
     #Uzw = np.pad(Uzw, [(u_padx,u_padx), (u_padx,u_pady)], mode='constant')
 
@@ -250,9 +273,6 @@ if __name__ == "__main__":
     S = np.fft.fft2(D)
     Uzw_d = np.fft.ifft2(R * S)
     Uzw_d = np.fft.fftshift(Uzw_d)
-
-    print("Uzw_d.shape = ", Uzw_d.shape)
-    input()
 
     # Crop the result
     Uzw_d = np.pad(Uzw_d, [(1,1), (1,1)], mode='constant')
@@ -265,6 +285,7 @@ if __name__ == "__main__":
     ## Normalize
     uz = normalize(uz)
 
+
     # RSC for comparison
     rsc_output = perform_rsc(input_wavefront,z,k,wavelength)
     # Crop
@@ -274,13 +295,13 @@ if __name__ == "__main__":
 
 
     fig, ax = plt.subplots(1,3,figsize=(15,5))
-    im0 = ax[0].imshow(np.abs(uz), cmap='jet')
+    im0 = ax[0].imshow(np.abs(uz))
     ax[0].set_title('CZT')
     divider = make_axes_locatable(ax[0])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im0, cax=cax, orientation='vertical')
 
-    im1 = ax[1].imshow(np.abs(rsc_output), cmap='jet')
+    im1 = ax[1].imshow(np.abs(rsc_output))
     ax[1].set_title('RSC')
     divider = make_axes_locatable(ax[1])
     cax = divider.append_axes('right', size='5%', pad=0.05)

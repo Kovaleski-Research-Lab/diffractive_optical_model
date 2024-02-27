@@ -60,7 +60,7 @@ class PropagatorFactory():
 
         # If the CZT flag is not set, set it to False.
         czt = params['czt']
-        if czt == None or czt == False:
+        if czt == None or czt == False or czt == 'None':
             czt = False
         # Check if the size and discretization of the input and output planes are
         # the same. If they aren't, set the CZT flag to True.
@@ -309,8 +309,8 @@ class Propagator(pl.LightningModule):
         dx_d = self.output_plane.delta_x.numpy()
         dy_d = self.output_plane.delta_y.numpy()
 
-        dfx = self.input_plane.delta_fx.numpy()
-        dfy = self.input_plane.delta_fy.numpy()
+        dfx = self.input_plane.delta_fx_padded.numpy()
+        dfy = self.input_plane.delta_fy_padded.numpy()
 
         xx_d = self.output_plane.xx.numpy()
         yy_d = self.output_plane.yy.numpy()
@@ -320,8 +320,8 @@ class Propagator(pl.LightningModule):
         self.alpha_y = np.round(dy_d/dfy, 10)
 
         # New coordinates
-        wx = self.alpha_x*self.input_plane.fx.numpy()
-        wy = self.alpha_y*self.input_plane.fy.numpy()
+        wx = self.alpha_x*self.input_plane.fx_padded.numpy()
+        wy = self.alpha_y*self.input_plane.fy_padded.numpy()
         wxx, wyy = np.meshgrid(wx, wy)
 
         self.dwx = np.round(np.diff(wx)[0], 10)
@@ -341,14 +341,14 @@ class Propagator(pl.LightningModule):
         D = np.fft.fftshift(D)
         E = np.fft.fftshift(E)
 
-        common_x = C.shape[-2] + D.shape[-2] - 1
-        common_y = C.shape[-1] + D.shape[-1] - 1
+        self.common_x = C.shape[-2] + D.shape[-2] - 1
+        self.common_y = C.shape[-1] + D.shape[-1] - 1
 
-        d_padx = (common_x - D.shape[0])//2
-        d_pady = (common_y - D.shape[1])//2
+        d_padx = (self.common_x - D.shape[-2])//2
+        d_pady = (self.common_y - D.shape[-1])//2
 
-        u_padx = (common_x - C.shape[0])//2
-        u_pady = (common_y - C.shape[1])//2
+        u_padx = (self.common_x - self.input_plane.Nx)//2
+        u_pady = (self.common_y - self.input_plane.Ny)//2
 
         self.d_pad = (d_padx, d_padx, d_pady, d_pady)
         self.u_pad = (u_padx, u_padx, u_pady, u_pady)
@@ -374,9 +374,9 @@ class Propagator(pl.LightningModule):
     def czt_ifft(self, Uz):
         
         Uz = self.cc_input(Uz)
-
-        Uz = torch.nn.functional.pad(Uz, self.u_pad, mode='constant')
         
+        Uz = torch.nn.functional.pad(Uz, self.u_pad, mode='constant')
+
         # Scale Uz - they call it U^z_w in the paper
         Uzw = Uz * self.E / (self.alpha_x*self.alpha_y)
 
@@ -414,6 +414,7 @@ class Propagator(pl.LightningModule):
         else:
             logger.error("Invalid propagation type: {}".format(self.prop_type))
             raise ValueError("Invalid propagation type: {}".format(self.prop_type))
+
         return self.normalize(self.cc_output(output_wavefront))
 
     def asm_propagate(self, input_wavefront):
@@ -440,6 +441,7 @@ class Propagator(pl.LightningModule):
         ###
         A = torch.fft.fft2(input_wavefront)
         U = A * self.H 
+
         if self.czt:
             U = torch.fft.fftshift(U, dim=(-1,-2))
             U = self.czt_ifft(U)
@@ -496,24 +498,24 @@ if __name__ == "__main__":
     output_plane_params0 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 2160,
+        'Ny': 2160,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0.,0.,10.e-2])
+        'center': torch.tensor([0.,0.,20e-2])
     }
 
     input_plane = plane.Plane(input_plane_params)
     output_plane0 = plane.Plane(output_plane_params0)
 
     propagator_params = {
-        'prop_type': 'asm',
+        'prop_type': None,
         'wavelength': torch.tensor(1.55e-6),
         'czt': False
     }
 
     propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
 
-    propagator_params['prop_type'] = 'asm'
+    propagator_params['prop_type'] = None
     propagator_params['czt'] = True
     propagator1 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
 
@@ -532,35 +534,36 @@ if __name__ == "__main__":
     #output_wavefront2 = propagator2(wavefront)
 
     difference = np.abs(output_wavefront0.abs() - output_wavefront1.abs())
+    from IPython import embed; embed()
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     fig, axes = plt.subplots(1,4)
-    im0 = axes[0].pcolormesh(input_plane.xx, input_plane.yy, wavefront[0,0,:,:].abs().numpy())
+    im0 = axes[0].imshow(wavefront[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
     axes[0].set_title("Input wavefront")
     divider = make_axes_locatable(axes[0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im0, cax=cax)
 
-    im1 = axes[1].pcolormesh(output_plane0.xx, output_plane0.yy, output_wavefront0[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
+    im1 = axes[1].imshow(output_wavefront0[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
     axes[1].set_title("Output wavefront (no CZT)")
     divider = make_axes_locatable(axes[1])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im1, cax=cax)
 
-    im2 = axes[2].pcolormesh(output_plane0.xx, output_plane0.yy, output_wavefront1[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
+    im2 = axes[2].imshow(output_wavefront1[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
     axes[2].set_title("Output wavefront (CZT)")
     divider = make_axes_locatable(axes[2])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im2, cax=cax)
 
-    im3 = axes[3].pcolormesh(output_plane0.xx, output_plane0.yy, difference[0,0,:,:].numpy(), vmin=0, vmax=2)
-    axes[3].set_title("Difference")
-    divider = make_axes_locatable(axes[3])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im3, cax=cax)
+    #im3 = axes[3].imshow(difference[0,0,:,:])
+    #axes[3].set_title("Difference")
+    #divider = make_axes_locatable(axes[3])
+    #cax = divider.append_axes("right", size="5%", pad=0.05)
+    #plt.colorbar(im3, cax=cax)
 
     axes[0].set_xlabel("x (m)")
     axes[0].set_ylabel("y (m)")

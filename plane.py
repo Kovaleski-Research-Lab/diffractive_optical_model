@@ -38,13 +38,13 @@ class Plane():
 
     def build_plane(self)->None:
         logger.debug("Building plane {}".format(self.name))
-        x = torch.div(self.Lx, 2)
-        y = torch.div(self.Ly, 2)
+        x = torch.round(torch.div(self.Lx, 2), decimals = 12)
+        y = torch.round(torch.div(self.Ly, 2), decimals = 12)
         self.x = torch.linspace(-x, x, self.Nx)
         self.y = torch.linspace(-y, y, self.Ny)
         
-        self.delta_x = self.Lx / self.Nx
-        self.delta_y = self.Ly / self.Ny
+        self.delta_x = torch.round(self.Lx / self.Nx, decimals = 12)
+        self.delta_y = torch.round(self.Ly / self.Ny, decimals = 12)
 
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
@@ -59,12 +59,15 @@ class Plane():
         self.fy = torch.fft.fftfreq(self.Ny, d=self.delta_y)
         self.fxx,self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
 
-        self.delta_fx = torch.diff(self.fx)[0]
-        self.delta_fy = torch.diff(self.fy)[0]
+        self.delta_fx = torch.round(torch.diff(self.fx)[0], decimals = 12)
+        self.delta_fy = torch.round(torch.diff(self.fy)[0], decimals = 12)
 
         self.fx_padded = torch.fft.fftfreq(2*self.Nx, d=self.delta_x)
         self.fy_padded = torch.fft.fftfreq(2*self.Ny, d=self.delta_y)
         self.fxx_padded,self.fyy_padded = torch.meshgrid(self.fx_padded, self.fy_padded, indexing='ij')
+
+        self.delta_fx_padded = torch.round(torch.diff(self.fx_padded)[0], decimals = 12)
+        self.delta_fy_padded = torch.round(torch.diff(self.fy_padded)[0], decimals = 12)
 
 
     def print_info(self):
