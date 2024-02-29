@@ -64,10 +64,9 @@ class PropagatorFactory():
             czt = False
         # Check if the size and discretization of the input and output planes are
         # the same. If they aren't, set the CZT flag to True.
-        elif (input_plane.Nx != output_plane.Nx) or (input_plane.Ny != output_plane.Ny) or czt == True:
-            logger.debug("Input and output planes have different sizes. Using CZT")
-            czt = True
-
+        elif (input_plane.Nx != output_plane.Nx) or (input_plane.Ny != output_plane.Ny):
+                logger.debug("Input and output planes have different sizes. Using CZT")
+                czt = True
 
         # Pick the propagator
         # Used the specifed. Else, check the distance and use the appropriate propagator

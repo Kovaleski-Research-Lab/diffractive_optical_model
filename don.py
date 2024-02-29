@@ -21,10 +21,18 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 # Import: Custom Python Libraries
 #--------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
-from . import modulator
-from . import propagator
-from . import plane
-from . import diffraction_block
+sys.path.append(os.path.dirname(__file__))
+#from . import modulator
+#from . import propagator
+#from . import plane
+#from . import diffraction_block
+
+import modulator
+import propagator
+import plane
+import diffraction_block
+
+
 
 
 #-----------------------------------
