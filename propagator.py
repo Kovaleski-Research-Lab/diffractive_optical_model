@@ -165,14 +165,17 @@ class PropagatorFactory():
         shift_x = output_plane.center[0] - input_plane.center[0]
         shift_y = output_plane.center[1] - input_plane.center[1]
         distance = output_plane.center[-1] - input_plane.center[-1]
+        distance = torch.abs(distance)
 
         logger.debug("Axial distance between input and output planes: {}".format(distance))
 
         distance_criteria_y = 2 * delta_y * ( Ny * delta_y - shift_y) / wavelength
         distance_criteria_y *= torch.sqrt(1 - (wavelength / (2 * Ny))**2)
+        distance_criteria_y = torch.abs(distance_criteria_y)
        
         distance_criteria_x = 2 * delta_x * ( Nx * delta_x - shift_x) / wavelength
         distance_criteria_x *= torch.sqrt(1 - (wavelength / (2 * Nx))**2)
+        distance_criteria_x = torch.abs(distance_criteria_x)
         
         strict_distance = torch.min(distance_criteria_y, distance_criteria_x) 
         logger.debug("Maximum axial distance for asm : {}".format(strict_distance))
@@ -242,7 +245,7 @@ class PropagatorFactory():
         z = distance.double()
 
         # Initialize the impulse response
-        h_rsc = torch.exp(1j*k*r) / r
+        h_rsc = torch.exp(torch.sign(distance) * 1j*k*r) / r
         h_rsc *= ((1/r) - (1j*k))
         h_rsc *= (1/(2*torch.pi)) * (z/r)
 
@@ -316,16 +319,16 @@ class Propagator(pl.LightningModule):
         yy_d = self.output_plane.yy.numpy()
 
         # Scale factors
-        self.alpha_x = np.round(dx_d/dfx, 10)
-        self.alpha_y = np.round(dy_d/dfy, 10)
+        self.alpha_x = np.round(dx_d/dfx, 14)
+        self.alpha_y = np.round(dy_d/dfy, 14)
 
         # New coordinates
         wx = self.alpha_x*self.input_plane.fx_padded.numpy()
         wy = self.alpha_y*self.input_plane.fy_padded.numpy()
         wxx, wyy = np.meshgrid(wx, wy)
 
-        self.dwx = np.round(np.diff(wx)[0], 10)
-        self.dwy = np.round(np.diff(wy)[0], 10)
+        self.dwx = np.round(np.diff(wx)[0], 14)
+        self.dwy = np.round(np.diff(wy)[0], 14)
 
         assert np.allclose(self.dwx,dx_d), "dx_d = {} and dwx = {}".format(dx_d,self.dwx)
         assert np.allclose(self.dwy,dy_d), "dy_d = {} and dwy = {}".format(dy_d,self.dwy)
