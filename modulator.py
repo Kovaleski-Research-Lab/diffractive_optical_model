@@ -2,13 +2,18 @@
 # Import: Basic Python Libraries
 #--------------------------------
 import os
+import sys
 import torch
 import logging
 from IPython import embed
 from loguru import logger
 import pytorch_lightning as pl
 
-from . import plane
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.dirname(__file__))
+
+#from . import plane
+import plane
 
 #--------------------------------
 # Initialize: Wavefront Modulator

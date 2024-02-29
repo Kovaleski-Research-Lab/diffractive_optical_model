@@ -2,11 +2,19 @@
 import torch
 from loguru import logger
 import pytorch_lightning as pl
+import sys
 
 # Custom library imports
-from . import plane
-from . import modulator
-from . import propagator
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.dirname(__file__))
+#from . import plane
+#from . import modulator
+#from . import propagator
+import plane
+import modulator
+import propagator
 
 class DiffractionBlock(pl.LightningModule):
     def __init__(self, params):
