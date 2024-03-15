@@ -45,10 +45,11 @@ if __name__ == "__main__":
 
     wavelength = torch.tensor(config['wavelength'])
 
-    focal_length0 = torch.tensor(10.e-2)
+    focal_length0 = torch.tensor(50.e-6)
 
     plane0 = plane.Plane(config['planes'][0])
     plane1 = plane.Plane(config['planes'][1])
+    plane2 = plane.Plane(config['planes'][2])
 
     lens_phase_pattern0 = modulator.lensPhase(plane1, wavelength, focal_length0)
 
@@ -63,21 +64,22 @@ if __name__ == "__main__":
     # This is a plane wave through a 1mm aperture
     xx,yy = plane0.xx, plane0.yy
     wavefront = torch.ones_like(xx)
-    wavefront[(xx**2 + yy**2) > (0.2e-3)**2] = 0
+    #wavefront[(xx**2 + yy**2) > (0.2e-6)**2] = 0
     wavefront = wavefront.view(1,1,plane0.Nx,plane0.Ny)
 
     # Propagate the wavefront
     wavefront0 = db0(wavefront)
-    wavefront1 = db1(wavefront0)
+    wavefront1 = db1(wavefront0).detach()
 
+    import matplotlib.pyplot as plt
     from IPython import embed; embed()
 
+    xx_out,yy_out = plane2.xx, plane2.yy
     # Plot the results
-    import matplotlib.pyplot as plt
     fig, axs = plt.subplots(1,3)
-    axs[0].pcolormesh(xx.numpy(),yy.numpy(),wavefront[0,0,:,:].abs().numpy())
-    axs[1].pcolormesh(xx.numpy(),yy.numpy(),wavefront0[0,0,:,:].abs().numpy())
-    axs[2].pcolormesh(xx.numpy(),yy.numpy(),wavefront1[0,0,:,:].abs().numpy())
+    axs[0].pcolormesh(xx.numpy(),yy.numpy(),wavefront[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
+    axs[1].pcolormesh(xx_out.numpy(),yy_out.numpy(),wavefront0[0,0,:,:].abs().numpy())
+    axs[2].pcolormesh(xx_out.numpy(),yy_out.numpy(),wavefront1[0,0,:,:].abs().numpy())
 
     axs[0].set_title('Input')
     axs[1].set_title('Output 0')

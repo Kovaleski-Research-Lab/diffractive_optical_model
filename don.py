@@ -112,7 +112,7 @@ class DON(LightningModule):
     #--------------------------------
    
     def configure_optimizers(self):
-        logging.debug("DON | setting optimizer to ADAM")
+        logger.debug("DON | setting optimizer to ADAM")
         optimizer = torch.optim.Adam(self.layers.parameters(), lr = self.learning_rate)
         return optimizer
 

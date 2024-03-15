@@ -64,7 +64,7 @@ class PropagatorFactory():
             czt = False
         # Check if the size and discretization of the input and output planes are
         # the same. If they aren't, set the CZT flag to True.
-        elif (input_plane.Nx != output_plane.Nx) or (input_plane.Ny != output_plane.Ny):
+        elif (input_plane.Nx != output_plane.Nx) or (input_plane.Ny != output_plane.Ny) or (input_plane.delta_x != output_plane.delta_x) or (input_plane.delta_y != output_plane.delta_y):
                 logger.debug("Input and output planes have different sizes. Using CZT")
                 czt = True
 
@@ -167,6 +167,7 @@ class PropagatorFactory():
         distance = torch.abs(distance)
 
         logger.debug("Axial distance between input and output planes: {}".format(distance))
+        logger.debug("Shift between input and output planes: [{}, {}]".format(shift_x, shift_y))
 
         distance_criteria_y = 2 * delta_y * ( Ny * delta_y - shift_y) / wavelength
         distance_criteria_y *= torch.sqrt(1 - (wavelength / (2 * Ny))**2)
@@ -237,9 +238,14 @@ class PropagatorFactory():
         #distance = torch.norm(output_plane.center - input_plane.center)
         distance = output_plane.center[-1] - input_plane.center[-1]
 
+        # Get the x-y shift between the input and output planes.
+        shift = output_plane.center - input_plane.center
+        x_shift = shift[0]
+        y_shift = shift[1]
+
         #10.1364/JOSAA.401908 equation 29
         #Also Goodman eq 3-79
-        r = torch.sqrt(xx**2 + yy**2 + distance**2).double()
+        r = torch.sqrt((xx - x_shift)**2 + (yy - y_shift)**2 + distance**2).double()
         k = (2 * torch.pi / wavelength).double()
         z = distance.double()
 
@@ -257,17 +263,6 @@ class PropagatorFactory():
         mag = mag / torch.max(mag)
         H = mag * torch.exp(1j*ang)
         
-        # Get the fourier dimensions of the input plane
-        fxx, fyy = input_plane.fxx_padded, input_plane.fyy_padded
-
-        # Get the x-y shift between the input and output planes.
-        shift = output_plane.center - input_plane.center
-        x_shift = shift[0]
-        y_shift = shift[1]
-
-        # Shift the transfer function to account for the shift between the input and output planes.
-        H = H * torch.exp(1j * 2 * torch.pi * (fxx * x_shift + fyy * y_shift))
-
         H.requrires_grad = False
         return H
 
@@ -294,14 +289,12 @@ class Propagator(pl.LightningModule):
     def normalize(self, x):
         mag = x.abs()
         ang = x.angle()
-        mag = mag - torch.min(mag)
-        mag = mag / torch.max(mag)
+        mag = mag / 1.e14
         return mag * torch.exp(1j*ang)
 
     def normalize_numpy(self, x):
         mag = np.abs(x)
         ang = np.angle(x)
-        mag = mag - np.min(mag)
         mag = mag / np.max(mag)
         return mag * np.exp(1j*ang)
 
@@ -336,9 +329,9 @@ class Propagator(pl.LightningModule):
         D = np.exp(-1j * np.pi * ((wxx**2)/(self.alpha_x) + (wyy**2)/(self.alpha_y)))
         E = np.exp(1j * np.pi * ((wxx**2)/(self.alpha_x) + (wyy**2)/(self.alpha_y)))
 
-        #C = self.normalize_numpy(C)
-        #D = self.normalize_numpy(D)
-        #E = self.normalize_numpy(E)
+        C = self.normalize_numpy(C)
+        D = self.normalize_numpy(D)
+        E = self.normalize_numpy(E)
 
         D = np.fft.fftshift(D)
         E = np.fft.fftshift(E)
@@ -365,9 +358,15 @@ class Propagator(pl.LightningModule):
         D = torch.from_numpy(D)
         E = torch.from_numpy(E)
 
+        C.requires_grad = False
+        D.requires_grad = False
+        E.requires_grad = False
+
         C = C.unsqueeze(0).unsqueeze(0)
         D = D.unsqueeze(0).unsqueeze(0)
         E = E.unsqueeze(0).unsqueeze(0)
+        self.S = torch.fft.fft2(D)
+        #self.S = self.normalize(self.S)
 
         self.register_buffer('C', C)
         self.register_buffer('D', D)
@@ -381,6 +380,7 @@ class Propagator(pl.LightningModule):
 
         # Scale Uz - they call it U^z_w in the paper
         Uzw = Uz * self.E / (self.alpha_x*self.alpha_y)
+        #Uzw = Uz * self.E
 
         #Uzw = np.pad(Uzw, [(u_padx,u_padx), (u_padx,u_pady)], mode='constant')
 
@@ -389,8 +389,7 @@ class Propagator(pl.LightningModule):
         if self.prop_type == 'asm':
             R = torch.fft.fftshift(R)
 
-        S = torch.fft.fft2(self.D)
-        Uzw_d = torch.fft.ifft2(R * S)
+        Uzw_d = torch.fft.ifft2(R * self.S)
         Uzw_d = torch.fft.fftshift(Uzw_d, dim=(-1,-2))
 
         # Crop the result
@@ -399,6 +398,8 @@ class Propagator(pl.LightningModule):
 
         ## Scale the result
         uz = Uzw_d * self.C * self.dwx * self.dwy
+        #uz = Uzw_d * self.C
+
         return uz
 
     def forward(self, input_wavefront):
@@ -420,7 +421,7 @@ class Propagator(pl.LightningModule):
             logger.error("Invalid propagation type: {}".format(self.prop_type))
             raise ValueError("Invalid propagation type: {}".format(self.prop_type))
 
-        return self.normalize(self.cc_output(output_wavefront))
+        return self.cc_output(output_wavefront)
 
     def asm_propagate(self, input_wavefront):
         #logger.debug("Propagating using ASM")
@@ -429,6 +430,7 @@ class Propagator(pl.LightningModule):
         ###
         A = torch.fft.fft2(input_wavefront)
         A = torch.fft.fftshift(A, dim=(-1,-2))
+        #A = self.normalize(A)
         U = A * self.H
 
         if self.czt:
@@ -445,11 +447,12 @@ class Propagator(pl.LightningModule):
         # Propagates the wavefront using the rayleigh-sommerfeld convolution.
         ###
         A = torch.fft.fft2(input_wavefront)
+        #A = self.normalize(A)
         U = A * self.H 
 
         if self.czt:
             U = torch.fft.fftshift(U, dim=(-1,-2))
-            U = self.czt_ifft(U)
+            U = self.normalize(self.czt_ifft(U))
         else:
             U = torch.fft.ifft2(U)
             U = torch.fft.ifftshift(U, dim=(-1,-2))
@@ -549,6 +552,7 @@ if __name__ == "__main__":
     #output_wavefront2 = propagator2(wavefront)
 
     difference = np.abs(output_wavefront0.abs() - output_wavefront1.abs())
+    from IPython import embed; embed()
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
