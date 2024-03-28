@@ -7,7 +7,7 @@ from loguru import logger
 import torchvision
 import pytorch_lightning as pl
 
-import plane
+from . import plane
 
 #--------------------------------
 # Class: PropagatorFactory
@@ -136,18 +136,20 @@ class PropagatorFactory():
         Nx = input_plane.Nx
         Ny = input_plane.Ny
 
-        distance = torch.norm(output_plane.center - input_plane.center)
+        shift_x = output_plane.center[0] - input_plane.center[0]
+        shift_y = output_plane.center[1] - input_plane.center[1]
+        distance = output_plane.center[-1] - input_plane.center[-1]
 
-        logger.debug("Distance between input and output planes: {}".format(distance))
+        logger.debug("Axial distance between input and output planes: {}".format(distance))
 
-        distance_criteria_y = 2 * Ny * (delta_y**2) / wavelength
+        distance_criteria_y = 2 * delta_y * ( Ny * delta_y - shift_y) / wavelength
         distance_criteria_y *= torch.sqrt(1 - (wavelength / (2 * Ny))**2)
        
-        distance_criteria_x = 2 * Nx * (delta_x**2) / wavelength
+        distance_criteria_x = 2 * delta_x * ( Nx * delta_x - shift_x) / wavelength
         distance_criteria_x *= torch.sqrt(1 - (wavelength / (2 * Nx))**2)
         
         strict_distance = torch.min(distance_criteria_y, distance_criteria_x) 
-        logger.debug("Maximum propagation distance for asm : {}".format(strict_distance))
+        logger.debug("Maximum axial distance for asm : {}".format(strict_distance))
     
         return(torch.le(distance, strict_distance))
 
