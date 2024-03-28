@@ -361,12 +361,12 @@ if __name__ == "__main__":
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1,3)
-    axes[0].pcolormesh(xx, yy, wavefront[0,0,:,:].abs().numpy())
+    fig, axes = plt.subplots(1,3,figsize=(12,4))
+    axes[0].pcolormesh(xx.numpy(), yy.numpy(), wavefront[0,0,:,:].abs().numpy())
     axes[0].set_title("Input wavefront")
-    axes[1].pcolormesh(xx, yy, output_wavefront0[0,0,:,:].abs().numpy())
+    axes[1].pcolormesh(xx.numpy(), yy.numpy(), output_wavefront0[0,0,:,:].abs().numpy())
     axes[1].set_title("Output wavefront for ASM\n x0 = 2mm, y0 = 2mm, z = 9.6cm")
-    axes[2].pcolormesh(xx, yy, output_wavefront1[0,0,:,:].abs().numpy())
+    axes[2].pcolormesh(xx.numpy(), yy.numpy(), output_wavefront1[0,0,:,:].abs().numpy())
     axes[2].set_title("Output wavefront for RSC\n x0 = 2mm, y0 = 2mm, z = 9.61cm")
 
     axes[0].set_xlabel("x (m)")
