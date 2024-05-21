@@ -111,22 +111,22 @@ planes:
     center: [0,0,0]
     size: [8.96e-6, 8.96e-6]
     normal: [0,0,1]
-    Nx: 1080
-    Ny: 1080
+    Nx: 100
+    Ny: 100
   1: &idpl01
     name: 'plane1'
     center: [0,0,100.e-6]
     size: [8.96e-5, 8.96e-5]
     normal: [0,0,1]
-    Nx: 2160
-    Ny: 2160
+    Nx: 200
+    Ny: 200
   2: &idpl02
     name: 'plane2'
     center: [0,0,200.e-6]
     size: [8.96e-5, 8.96e-5]
     normal: [0,0,1]
-    Nx: 2160
-    Ny: 2160
+    Nx: 200
+    Ny: 200
 
 modulators:
   0: &idm00

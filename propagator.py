@@ -7,9 +7,11 @@ import numpy as np
 from loguru import logger
 import torchvision
 import pytorch_lightning as pl
+from IPython import embed
 
 #from . import plane
 import plane
+from dft import dft_2d, dift_2d
 
 
 #--------------------------------
@@ -26,7 +28,6 @@ class PropagatorFactory():
         #   DNI: Direct numerical integration
         #   ASM: Angular spectrum method
         #   RSC: Rayleigh-Sommerfeld convolution
-        #   Shift: Shifted angular spectrum method
         #   Scaled: Scaled angular spectrum method
         #   Rotated: Rotated angular spectrum method #TODO
 
@@ -39,6 +40,10 @@ class PropagatorFactory():
 
         # This function compares the input and output planes to determine 
         # which propagator type to use and in which order to apply the propagators.
+
+        # The shift is a special case of the ASM and RSC propagation methods where
+        # the transfer function is shifted to account for the shift between the input
+        # and output planes. This is done using the shift theorem.
 
         # The scaled propagation is a special case of the ASM and RSC propagation
         # methods where the chirp z transform is used to perform the IFFT. This
@@ -58,15 +63,6 @@ class PropagatorFactory():
         else:
             wavelength = params['wavelength']
 
-        # If the CZT flag is not set, set it to False.
-        czt = params['czt']
-        if czt == None or czt == False or czt == 'None':
-            czt = False
-        # Check if the size and discretization of the input and output planes are
-        # the same. If they aren't, set the CZT flag to True.
-        elif (input_plane.Nx != output_plane.Nx) or (input_plane.Ny != output_plane.Ny) or (input_plane.delta_x != output_plane.delta_x) or (input_plane.delta_y != output_plane.delta_y):
-                logger.debug("Input and output planes have different sizes. Using CZT")
-                czt = True
 
         # Pick the propagator
         # Used the specifed. Else, check the distance and use the appropriate propagator
@@ -95,8 +91,7 @@ class PropagatorFactory():
             logger.error("Invalid propagation type: {}".format(params['prop_type']))
             raise ValueError("Invalid propagation type: {}".format(params['prop_type']))
 
-
-        propagator = Propagator(input_plane, output_plane, prop_function, prop_type, czt, wavelength)
+        propagator = Propagator(input_plane, output_plane, prop_function, prop_type)
         return propagator
 
 
@@ -220,10 +215,11 @@ class PropagatorFactory():
         y_shift = shift[1]
 
         # Shift the transfer function using shift theorem
-        H = H * torch.exp(1j * 2 * torch.pi * (fxx * x_shift + fyy * y_shift))
+        H = H * torch.exp(1j * 2 * torch.pi * (fxx * -x_shift + fyy * -y_shift))
         H = torch.fft.fftshift(H)
 
-        H.requrires_grad = False
+        H.requires_grad = False
+
         return H
 
     def init_rsc_transfer_function(self, input_plane, output_plane, wavelength):
@@ -231,6 +227,13 @@ class PropagatorFactory():
 
         # Get the spatial dimensions of the input plane
         xx, yy = input_plane.xx_padded, input_plane.yy_padded
+
+        fxx, fyy = input_plane.fxx_padded, input_plane.fyy_padded
+
+        #Mask out non-propagating waves
+        mask = torch.sqrt(fxx**2 + fyy**2) < (1/wavelength)
+        fxx = mask * fxx
+        fyy = mask * fyy
 
         # Get the axial distance between the input and output planes.
         # NOTE: When we move to rotation propatation, this will need to be updated
@@ -255,152 +258,34 @@ class PropagatorFactory():
         h_rsc *= (1/(2*torch.pi)) * (z/r)
 
         # Get the transfer function
-        H = torch.fft.fft2(h_rsc)
+        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
+        #H = torch.fft.fft2(h_rsc)
+        H = H*mask
 
         # Normalize the transfer function
         mag = H.abs()
         ang = H.angle()
         mag = mag / torch.max(mag)
+        #mag = torch.ones(H.size())
         H = mag * torch.exp(1j*ang)
+        H = torch.fft.fftshift(H)
         
         H.requrires_grad = False
         return H
 
 class Propagator(pl.LightningModule):
-    def __init__(self, input_plane, output_plane, transfer_function, prop_type, czt, wavelength):
+    def __init__(self, input_plane, output_plane, transfer_function, prop_type):
         super().__init__()
         self.input_plane = input_plane
         self.output_plane = output_plane
         self.transfer_function = transfer_function
         self.prop_type = prop_type
-        self.wavelength = wavelength
         self.register_buffer('H', self.transfer_function)
         self.cc_output = torchvision.transforms.CenterCrop((int(output_plane.Nx), int(output_plane.Ny)))
         self.cc_input = torchvision.transforms.CenterCrop((int(input_plane.Nx), int(input_plane.Ny)))
         padx = torch.div(input_plane.Nx, 2, rounding_mode='trunc')
         pady = torch.div(input_plane.Ny, 2, rounding_mode='trunc')
         self.padding = (pady,pady,padx,padx)    
-
-        self.czt = czt
-        # Initialize the CZT if needed  
-        if self.czt:
-            self.init_czt()
-
-    def normalize(self, x):
-        mag = x.abs()
-        ang = x.angle()
-        mag = mag / 1.e14
-        return mag * torch.exp(1j*ang)
-
-    def normalize_numpy(self, x):
-        mag = np.abs(x)
-        ang = np.angle(x)
-        mag = mag / np.max(mag)
-        return mag * np.exp(1j*ang)
-
-    def init_czt(self):
-
-        # Equations and notation from 10.1364/JOSAA.31.001832
-        dx_d = self.output_plane.delta_x.numpy()
-        dy_d = self.output_plane.delta_y.numpy()
-
-        dfx = self.input_plane.delta_fx_padded.numpy()
-        dfy = self.input_plane.delta_fy_padded.numpy()
-
-        xx_d = self.output_plane.xx.numpy()
-        yy_d = self.output_plane.yy.numpy()
-
-        # Scale factors
-        self.alpha_x = np.round(dx_d/dfx, 14)
-        self.alpha_y = np.round(dy_d/dfy, 14)
-
-        # New coordinates
-        wx = self.alpha_x*self.input_plane.fx_padded.numpy()
-        wy = self.alpha_y*self.input_plane.fy_padded.numpy()
-        wxx, wyy = np.meshgrid(wx, wy)
-
-        self.dwx = np.round(np.diff(wx)[0], 14)
-        self.dwy = np.round(np.diff(wy)[0], 14)
-
-        assert np.allclose(self.dwx,dx_d), "dx_d = {} and dwx = {}".format(dx_d,self.dwx)
-        assert np.allclose(self.dwy,dy_d), "dy_d = {} and dwy = {}".format(dy_d,self.dwy)
-
-        C = np.exp(1j * np.pi * ((xx_d**2)/(self.alpha_x) + (yy_d**2)/(self.alpha_y)))
-        D = np.exp(-1j * np.pi * ((wxx**2)/(self.alpha_x) + (wyy**2)/(self.alpha_y)))
-        E = np.exp(1j * np.pi * ((wxx**2)/(self.alpha_x) + (wyy**2)/(self.alpha_y)))
-
-        C = self.normalize_numpy(C)
-        D = self.normalize_numpy(D)
-        E = self.normalize_numpy(E)
-
-        D = np.fft.fftshift(D)
-        E = np.fft.fftshift(E)
-
-        self.common_x = C.shape[-2] + D.shape[-2] - 1
-        self.common_y = C.shape[-1] + D.shape[-1] - 1
-
-        d_padx = (self.common_x - D.shape[-2])//2
-        d_pady = (self.common_y - D.shape[-1])//2
-
-        u_padx = (self.common_x - self.input_plane.Nx)//2
-        u_pady = (self.common_y - self.input_plane.Ny)//2
-
-        self.d_pad = (d_padx, d_padx, d_pady, d_pady)
-        self.u_pad = (u_padx, u_padx, u_pady, u_pady)
-
-        #E = torch.nn.functional.pad(E, self.d_pad, mode='constant')
-        #D = torch.nn.functional.pad(D, self.d_pad, mode='circular')
-
-        E = np.pad(E, [(d_padx,d_padx), (d_pady,d_pady)], mode='constant')
-        D = np.pad(D, [(d_padx,d_padx), (d_pady,d_pady)], mode='wrap')
-
-        C = torch.from_numpy(C)
-        D = torch.from_numpy(D)
-        E = torch.from_numpy(E)
-
-        C.requires_grad = False
-        D.requires_grad = False
-        E.requires_grad = False
-
-        C = C.unsqueeze(0).unsqueeze(0)
-        D = D.unsqueeze(0).unsqueeze(0)
-        E = E.unsqueeze(0).unsqueeze(0)
-        self.S = torch.fft.fft2(D)
-        #self.S = self.normalize(self.S)
-
-        self.register_buffer('C', C)
-        self.register_buffer('D', D)
-        self.register_buffer('E', E)
-
-    def czt_ifft(self, Uz):
-        
-        Uz = self.cc_input(Uz)
-        
-        Uz = torch.nn.functional.pad(Uz, self.u_pad, mode='constant')
-
-        # Scale Uz - they call it U^z_w in the paper
-        Uzw = Uz * self.E / (self.alpha_x*self.alpha_y)
-        #Uzw = Uz * self.E
-
-        #Uzw = np.pad(Uzw, [(u_padx,u_padx), (u_padx,u_pady)], mode='constant')
-
-        # Linear convolution of Uzw with D
-        R = torch.fft.fft2(Uzw)
-        if self.prop_type == 'asm':
-            R = torch.fft.fftshift(R)
-
-        Uzw_d = torch.fft.ifft2(R * self.S)
-        Uzw_d = torch.fft.fftshift(Uzw_d, dim=(-1,-2))
-
-        # Crop the result
-        Uzw_d = torch.nn.functional.pad(Uzw_d, (1, 1, 1, 1), mode='constant')
-        Uzw_d = self.cc_output(Uzw_d)
-
-        ## Scale the result
-        uz = Uzw_d * self.C * self.dwx * self.dwy
-        #uz = Uzw_d * self.C
-
-        return uz
 
     def forward(self, input_wavefront):
         # Pad the wavefront
@@ -421,24 +306,19 @@ class Propagator(pl.LightningModule):
             logger.error("Invalid propagation type: {}".format(self.prop_type))
             raise ValueError("Invalid propagation type: {}".format(self.prop_type))
 
-        return self.cc_output(output_wavefront)
+        return output_wavefront
 
     def asm_propagate(self, input_wavefront):
         #logger.debug("Propagating using ASM")
         ###
         # Propagates the wavefront using the angular spectrum method.
         ###
-        A = torch.fft.fft2(input_wavefront)
-        A = torch.fft.fftshift(A, dim=(-1,-2))
-        #A = self.normalize(A)
+        A = dft_2d(input_wavefront, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, backend=torch)
+        A = torch.fft.fftshift(A)
         U = A * self.H
-
-        if self.czt:
-            U = self.czt_ifft(U)
-            #U = torch.fft.ifftshift(U, dim=(-1,-2))
-        else:
-            U = torch.fft.ifftshift(U, dim=(-1,-2))
-            U = torch.fft.ifft2(U)
+        U = torch.fft.ifftshift(U, dim=(-1,-2))
+        U = dift_2d(U, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, self.output_plane.x_padded, self.output_plane.y_padded, backend=torch)
+        U = self.cc_output(U)
         return U
 
     def rsc_propagate(self, input_wavefront):
@@ -446,16 +326,14 @@ class Propagator(pl.LightningModule):
         ###
         # Propagates the wavefront using the rayleigh-sommerfeld convolution.
         ###
-        A = torch.fft.fft2(input_wavefront)
-        #A = self.normalize(A)
+        #A = torch.fft.fft2(input_wavefront)
+        A = dft_2d(input_wavefront, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, backend=torch)
+        A = torch.fft.fftshift(A)
         U = A * self.H 
-
-        if self.czt:
-            U = torch.fft.fftshift(U, dim=(-1,-2))
-            U = self.normalize(self.czt_ifft(U))
-        else:
-            U = torch.fft.ifft2(U)
-            U = torch.fft.ifftshift(U, dim=(-1,-2))
+        U = torch.fft.ifft2(U)
+        #U = dift_2d(U, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, self.output_plane.x_padded, self.output_plane.y_padded, backend=torch)
+        U = torch.fft.ifftshift(U, dim=(-1,-2))
+        U = self.cc_output(U)
         return U
 
     def dni_propagate(self, input_wavefront):
@@ -468,7 +346,6 @@ class Propagator(pl.LightningModule):
         k = torch.pi * 2 / self.wavelength
         output_field = input_wavefront.new_empty(input_wavefront.size(), dtype=torch.complex64)
 
-       
         from tqdm import tqdm
         for i,x in enumerate(tqdm(self.input_plane.x_padded)):
             for j,y in enumerate(self.input_plane.y_padded):
@@ -497,8 +374,8 @@ if __name__ == "__main__":
     input_plane_params = {
         'name': 'input_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 1000,
+        'Ny': 1000,
         'normal': torch.tensor([0,0,1]),
         'center': torch.tensor([0,0,0])
     }
@@ -506,36 +383,36 @@ if __name__ == "__main__":
     output_plane_params0 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 1000,
+        'Ny': 1000,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0.,0.,10e-2])
+        'center': torch.tensor([0,0,100e-2])
     }
 
     output_plane_params1 = {
         'name': 'output_plane',
         'size': torch.tensor([8.96e-3, 8.96e-3]),
-        'Nx': 1080,
-        'Ny': 1080,
+        'Nx': 500,
+        'Ny': 500,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0.,0.,10e-2])
+        'center': torch.tensor([0,0,20e-2])
     }
 
     input_plane = plane.Plane(input_plane_params)
     output_plane0 = plane.Plane(output_plane_params0)
-    output_plane1 = plane.Plane(output_plane_params1)
+    output_plane1 = plane.Plane(output_plane_params0)
 
     propagator_params = {
-        'prop_type': None,
+        'prop_type': 'asm',
         'wavelength': torch.tensor(1.55e-6),
-        'czt': False
     }
 
     propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
 
-    propagator_params['prop_type'] = None
-    propagator_params['czt'] = True
+    propagator_params['prop_type'] = 'rsc'
     propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
+
+    from IPython import embed; embed()
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
@@ -543,41 +420,41 @@ if __name__ == "__main__":
     y = torch.linspace(-input_plane.Ly/2, input_plane.Ly/2, input_plane.Ny)
     xx, yy = torch.meshgrid(x, y, indexing='ij')
     wavefront = torch.ones_like(xx)
-    wavefront[(xx**2 + yy**2) > (0.2e-3)**2] = 0
+    wavefront[(xx**2 + yy**2) > (0.6e-3)**2] = 0
     wavefront = wavefront.view(1,1,input_plane.Nx,input_plane.Ny)
+    wavefront = wavefront.type(torch.complex128)
 
     # Propagate the wavefront
-    output_wavefront0 = propagator0(wavefront)
-    output_wavefront1 = propagator1(wavefront)
+    output_wavefront0 = propagator0(wavefront).squeeze()
+    output_wavefront1 = propagator1(wavefront).squeeze()
     #output_wavefront2 = propagator2(wavefront)
 
     difference = np.abs(output_wavefront0.abs() - output_wavefront1.abs())
-    from IPython import embed; embed()
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-    fig, axes = plt.subplots(1,4)
-    im0 = axes[0].imshow(wavefront[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
+    fig, axes = plt.subplots(1,4, figsize=(20,5))
+    im0 = axes[0].imshow(wavefront.abs().numpy().squeeze())
     axes[0].set_title("Input wavefront")
     divider = make_axes_locatable(axes[0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im0, cax=cax)
 
-    im1 = axes[1].imshow(output_wavefront0[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
-    axes[1].set_title("Output wavefront (no CZT)")
+    im1 = axes[1].imshow(output_wavefront0.abs().numpy())
+    axes[1].set_title("Output wavefront (ASM)")
     divider = make_axes_locatable(axes[1])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im1, cax=cax)
 
-    im2 = axes[2].imshow(output_wavefront1[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
-    axes[2].set_title("Output wavefront (CZT)")
+    im2 = axes[2].imshow(output_wavefront1.abs().numpy())
+    axes[2].set_title("Output wavefront (RSC)")
     divider = make_axes_locatable(axes[2])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im2, cax=cax)
 
-    im3 = axes[3].imshow(difference[0,0,:,:], vmin=0, vmax=1)
+    im3 = axes[3].imshow(difference)
     axes[3].set_title("Difference")
     divider = make_axes_locatable(axes[3])
     cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -596,6 +473,8 @@ if __name__ == "__main__":
     # Set the correct aspect ratio
     for ax in axes:
         ax.set_aspect('equal')
+
+    plt.tight_layout()
 
     plt.show()
 
