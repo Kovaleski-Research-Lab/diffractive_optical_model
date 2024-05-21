@@ -258,9 +258,15 @@ class PropagatorFactory():
         h_rsc *= (1/(2*torch.pi)) * (z/r)
 
         # Get the transfer function
-        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
-        #H = torch.fft.fft2(h_rsc)
-        H = H*mask
+        H_me = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
+        H = torch.fft.fft2(h_rsc)
+        import matplotlib.pyplot as plt
+        fig,ax = plt.subplots(1,3)
+        ax[0].imshow(H.angle().squeeze().numpy())
+        ax[1].imshow(H_me.angle().squeeze().numpy())
+        ax[2].imshow(H.angle().squeeze().numpy() - H_me.angle().squeeze().numpy())
+        plt.show()
+        #H = H*mask
 
         # Normalize the transfer function
         mag = H.abs()
@@ -386,7 +392,7 @@ if __name__ == "__main__":
         'Nx': 1000,
         'Ny': 1000,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,100e-2])
+        'center': torch.tensor([0,0,50e-2])
     }
 
     output_plane_params1 = {
@@ -411,8 +417,7 @@ if __name__ == "__main__":
 
     propagator_params['prop_type'] = 'rsc'
     propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
-
-    from IPython import embed; embed()
+    embed()
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture

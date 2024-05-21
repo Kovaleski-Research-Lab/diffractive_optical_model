@@ -36,10 +36,11 @@ def dft_1d(g, x, fx, dft_matrix = None, backend = BACKENDS["numpy"]):
             dft_matrix = dft_matrix.reshape(1, fx.shape[0], M)
         elif backend == torch:
             dft_matrix = dft_matrix.unsqueeze(0)  # Add batch dimension
+            dft_matrix = dft_matrix.type(torch.complex128)
 
         # If the backend is torch, move it to the GPU if a device is available.
         if backend == torch and torch.cuda.is_available():
-            dft_matrix = dft_matrix.cuda()
+            dft_matrix = dft_matrix.to(g.device)
 
     # Perform the DFT using @ operator for batch processing
     if backend == np:
@@ -72,19 +73,21 @@ def dift_1d(G, x, fx, x_reconstruction, dift_matrix=None, backend=BACKENDS["nump
         # Reshape the DIFT matrix to properly broadcast during the dot product
         if backend == np:
             dift_matrix = dift_matrix.reshape(1, x_reconstruction.shape[0], fx.shape[0])
+            dift_matrix = dift_matrix.astype(complex)
         elif backend == torch:
             dift_matrix = dift_matrix.unsqueeze(0)  # Add batch dimension
+            dift_matrix = dift_matrix.type(torch.complex128)
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dift_matrix = dift_matrix.cuda()
+            dift_matrix = dift_matrix.to(G.device)
 
     # Perform the DIFT using the @ operator for batch processing
     if backend == np:
         result = dift_matrix[0] @ G.T
     elif backend == torch:
         result = dift_matrix[0] @ G.transpose(0, 1)
-
+    
     return result.T
 
 def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKENDS["numpy"]):
@@ -116,7 +119,7 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dft_matrix_x = dft_matrix_x.cuda()
+            dft_matrix_x = dft_matrix_x.to(g.device)
 
     # If the dft_matrix_y is not provided, create it
     if dft_matrix_y is None:
@@ -129,21 +132,21 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dft_matrix_y = dft_matrix_y.cuda()
+            dft_matrix_y = dft_matrix_y.to(g.device)
 
     # Perform the DFT along x-axis
     if backend == np:
-        g_dft_x = dft_matrix_x[0] @ g.permute(0, 2, 1)
+        g_dft_x = dft_matrix_x[0] @ g.transpose(0, 2, 1)
     elif backend == torch:
-        g_dft_x = dft_matrix_x[0] @ g
+        g_dft_x = dft_matrix_x[0] @ g.permute(0, 2, 1)
 
     # Perform the DFT along y-axis
     if backend == np:
-        g_dft_xy = dft_matrix_y[0] @ g_dft_x.permute(0, 2, 1)
+        g_dft_xy = dft_matrix_y[0] @ g_dft_x.transpose(0, 2, 1)
+        return g_dft_xy.transpose(0, 2, 1)
     elif backend == torch:
         g_dft_xy = dft_matrix_y[0] @ g_dft_x.permute(0, 2, 1)
-
-    return g_dft_xy.permute(0, 2, 1)
+        return g_dft_xy.permute(0, 2, 1)
 
 def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=None, dift_matrix_y=None, backend=BACKENDS["numpy"]):
 
@@ -176,7 +179,7 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dift_matrix_x = dift_matrix_x.cuda()
+            dift_matrix_x = dift_matrix_x.to(G.device)
 
     # If the dift_matrix_y is not provided, create it
     if dift_matrix_y is None:
@@ -189,17 +192,17 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dift_matrix_y = dift_matrix_y.cuda()
+            dift_matrix_y = dift_matrix_y.to(G.device)
 
     # Perform the DIFT using dot product along y-axis (columns)
     if backend == np:
-        g_reconstructed_y = dift_matrix_y[0] @ G.permute(0, 2, 1)
+        g_reconstructed_y = dift_matrix_y[0] @ G.transpose(0, 2, 1)
     elif backend == torch:
         g_reconstructed_y = dift_matrix_y[0] @ G.permute(0, 2, 1)
 
     # Perform the DIFT using dot product along x-axis (rows)
     if backend == np:
-        g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
+        g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.transpose(0, 2, 1)
     elif backend == torch:
         g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
 
@@ -235,15 +238,15 @@ if __name__ == "__main__":
     # Perform the DFT with numpy and the chosen backend
     G_backend = dft_1d(g, x, fx, backend = backend)
 
-    G_numpy = np.fft.fft(g.squeeze())
-    G_numpy = np.fft.fftshift(G_numpy)
+    G_numpy = torch.fft.fft(g.squeeze())
+    G_numpy = torch.fft.fftshift(G_numpy)
 
     # Define the normalization factor
     norm_factor = M/2 
 
     # Get the normalized amplitudes
     G_backend_amp = backend.abs(G_backend).squeeze()/norm_factor
-    G_numpy_amp = np.abs(G_numpy).squeeze()/norm_factor
+    G_numpy_amp = torch.abs(G_numpy).squeeze()/norm_factor
 
     # Get the difference between the two
     diff = G_backend_amp - G_numpy_amp
@@ -280,11 +283,11 @@ if __name__ == "__main__":
     x_reconstruction = backend.linspace(-1, 1, M)
 
     # Shift the numpy signal
-    G_numpy = np.fft.ifftshift(G_numpy)
+    G_numpy = torch.fft.ifftshift(G_numpy)
 
     # Perform the DIFT with numpy and the chosen backend
     g_reconstructed_backend = dift_1d(G_backend, x, fx, x_reconstruction, backend = backend).squeeze()
-    g_reconstructed_numpy = np.fft.ifft(G_numpy).squeeze()
+    g_reconstructed_numpy = torch.fft.ifft(G_numpy).squeeze()
 
     # Shift them
 
@@ -321,12 +324,12 @@ if __name__ == "__main__":
     G_backend = dft_1d(g, x, fx_smaller, backend = backend)
 
     # Perform the DFT with numpy
-    G_numpy = np.fft.fft(g.squeeze())
-    G_numpy = np.fft.fftshift(G_numpy)
+    G_numpy = torch.fft.fft(g.squeeze())
+    G_numpy = torch.fft.fftshift(G_numpy)
 
     # Get the normalized amplitudes
     G_backend_amp = backend.abs(G_backend).squeeze()/norm_factor
-    G_numpy_amp = np.abs(G_numpy).squeeze()/norm_factor
+    G_numpy_amp = torch.abs(G_numpy).squeeze()/norm_factor
 
     # Plot them to compare
     fig, ax = plt.subplots(2,1, figsize = (8, 5))
@@ -357,8 +360,8 @@ if __name__ == "__main__":
     g_reconstructed_backend = dift_1d(G_backend, x, fx_smaller, x_reconstruction, backend = backend)
 
     # Perform the DIFT with numpy
-    G_numpy = np.fft.ifftshift(G_numpy)
-    g_reconstructed_numpy = np.fft.ifft(G_numpy)
+    G_numpy = torch.fft.ifftshift(G_numpy)
+    g_reconstructed_numpy = torch.fft.ifft(G_numpy)
 
     # Plot them to compare
     fig, ax = plt.subplots(1,1, figsize = (8, 5))
@@ -396,7 +399,7 @@ if __name__ == "__main__":
 
     # Convert the dtype of the signal to complex
     if backend == torch:
-        g = g.type(torch.complex64)
+        g = g.type(torch.complex128)
     else:
         g = g.astype(complex)
 
@@ -411,15 +414,15 @@ if __name__ == "__main__":
     # Perform the DFT with numpy and the chosen backend
     G_backend = dft_2d(g, x, y, fx, fy, backend = backend)
 
-    G_numpy = np.fft.fft2(g.squeeze())
-    G_numpy = np.fft.fftshift(G_numpy)
+    G_numpy = torch.fft.fft2(g.squeeze())
+    G_numpy = torch.fft.fftshift(G_numpy)
 
     # Define the normalization factor
     norm_factor = M*N/2
 
     # Get the normalized amplitudes
     G_backend_amp = backend.abs(G_backend.squeeze())/norm_factor
-    G_numpy_amp = np.abs(G_numpy.squeeze())/norm_factor
+    G_numpy_amp = torch.abs(G_numpy.squeeze())/norm_factor
 
     # Get the difference between the two
     diff = G_backend_amp - G_numpy_amp
@@ -480,7 +483,7 @@ if __name__ == "__main__":
 
     # Perform the DIFT with numpy and the chosen backend
     g_reconstructed_backend = dift_2d(G_backend, x, y, fx, fy, x_reconstruction, y_reconstruction, backend = backend)
-    g_reconstructed_numpy = np.fft.ifft2(np.fft.ifftshift(G_numpy.squeeze()))
+    g_reconstructed_numpy = torch.fft.ifft2(torch.fft.ifftshift(G_numpy.squeeze()))
 
     # Get the difference between the two
     diff = g_reconstructed_backend - g_reconstructed_numpy
@@ -539,7 +542,7 @@ if __name__ == "__main__":
 
     # Convert the image to a numpy/cupy array or a torch tensor
     if backend == torch:
-        img = torch.tensor(np.array(img)).type(torch.complex64)
+        img = torch.tensor(np.array(img)).type(torch.complex128)
     else:
         img = backend.array(img).astype(complex)
 
@@ -574,8 +577,8 @@ if __name__ == "__main__":
     # Perform the DFT with numpy and the chosen backend
     G_backend = dft_2d(img, x, y, fx, fy, backend = backend)
 
-    G_numpy = np.fft.fft2(img.squeeze())
-    G_numpy = np.fft.fftshift(G_numpy)
+    G_numpy = torch.fft.fft2(img.squeeze())
+    G_numpy = torch.fft.fftshift(G_numpy)
 
     # Define the normalization factor
     norm_factor = img.shape[-2]*img.shape[-1]/2
@@ -583,7 +586,7 @@ if __name__ == "__main__":
 
     # Get the normalized amplitudes
     G_backend_amp = backend.abs(G_backend.squeeze())/norm_factor
-    G_numpy_amp = np.abs(G_numpy.squeeze())/norm_factor
+    G_numpy_amp = torch.abs(G_numpy.squeeze())/norm_factor
 
     # Get the difference between the two
     diff = G_backend_amp - G_numpy_amp
@@ -644,7 +647,7 @@ if __name__ == "__main__":
 
     # Perform the DIFT with numpy and the chosen backend
     g_reconstructed_backend = dift_2d(G_backend, x, y, fx, fy, x_reconstruction, y_reconstruction, backend = backend)
-    g_reconstructed_numpy = np.fft.ifft2(np.fft.ifftshift(G_numpy))
+    g_reconstructed_numpy = torch.fft.ifft2(torch.fft.ifftshift(G_numpy))
 
     # Get the difference between the two
     diff = g_reconstructed_backend.squeeze() - g_reconstructed_numpy.squeeze()
@@ -700,7 +703,7 @@ if __name__ == "__main__":
     g_reconstructed_backend = dift_2d(G_backend, x, y, fx, fy, x_reconstruction_smaller, y_reconstruction_smaller, backend = backend).squeeze()
 
     # Perform the DIFT with numpy   
-    g_reconstructed_numpy = np.fft.ifft2(np.fft.ifftshift(G_numpy.squeeze()))
+    g_reconstructed_numpy = torch.fft.ifft2(torch.fft.ifftshift(G_numpy.squeeze()))
 
     # Get the number of points in the larger window when cropped to the smaller window
     num_points = len(np.where((x_reconstruction >= x_reconstruction_smaller[0]) & (x_reconstruction <= x_reconstruction_smaller[-1]))[0])
