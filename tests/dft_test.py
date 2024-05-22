@@ -418,8 +418,8 @@ class TestDFT(unittest.TestCase):
         fy = torch.tensor(fy)
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dft_2d(g, x, y, fx, fy, backend=torch).squeeze().numpy()
-        G_np = np.fft.fft2(g.numpy())
+        G_me = dft_2d(g.cuda(), x, y, fx, fy, backend=torch).cpu().squeeze().numpy()
+        G_np = np.fft.fft2(g.cpu().numpy())
         self.assertTrue(np.allclose(G_me, G_np, atol=1e-7))
 
     def test_external_dift_2d_torch_numpy(self):
@@ -438,7 +438,7 @@ class TestDFT(unittest.TestCase):
         fy = torch.tensor(fy)
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g, x, y, fx, fy, x, y, backend=torch).squeeze().numpy()
+        G_me = dift_2d(g.cuda(), x, y, fx, fy, x, y, backend=torch).cpu().squeeze().numpy()
         G_np = np.fft.ifft2(g.numpy())
         self.assertTrue(np.allclose(G_me, G_np, atol=1e-7))
     #-------------------------------------------------------------------------
@@ -492,7 +492,7 @@ class TestDFT(unittest.TestCase):
         fy = torch.tensor(fy)
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dft_2d(g, x, y, fx, fy, backend=torch)
+        G_me = dft_2d(g.cuda(), x, y, fx, fy, backend=torch).cpu()
         G_torch = torch.fft.fft2(g)
         self.assertTrue(torch.allclose(G_me, G_torch, atol=1e-7))
     def test_external_dift_2d_torch_torch(self):
@@ -512,7 +512,7 @@ class TestDFT(unittest.TestCase):
         fy = torch.tensor(fy)
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g, x, y, fx, fy, x, y, backend=torch)
+        G_me = dift_2d(g.cuda(), x, y, fx, fy, x, y, backend=torch).cpu()
         G_torch = torch.fft.ifft2(g)
         self.assertTrue(torch.allclose(G_me, G_torch, atol=1e-7))
     #-------------------------------------------------------------------------
@@ -539,6 +539,8 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
         g = np.sin(2 * np.pi * 10 * xx)
         g += np.sin(2 * np.pi * 10 * yy)
         G_me = dift_2d(g, x, y, fx, fy, x, y, backend=np).squeeze()

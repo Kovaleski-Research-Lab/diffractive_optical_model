@@ -381,9 +381,9 @@ if __name__ == "__main__":
 
     output_plane_params0 = {
         'name': 'output_plane',
-        'size': torch.tensor([20.96e-3, 20.96e-3]),
-        'Nx': 1000,
-        'Ny': 1000,
+        'size': torch.tensor([2.96e-3, 2.96e-3]),
+        'Nx': 2000,
+        'Ny': 2000,
         'normal': torch.tensor([0,0,1]),
         'center': torch.tensor([0,0,11e-2])
     }
@@ -425,53 +425,57 @@ if __name__ == "__main__":
     output_wavefront1 = propagator1(wavefront).squeeze()
     #output_wavefront2 = propagator2(wavefront)
 
-    difference = output_wavefront0.abs()
-
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+    from matplotlib import ticker
 
-    fig, axes = plt.subplots(1,4, figsize=(20,5))
-    im0 = axes[0].imshow(wavefront.abs().numpy().squeeze())
+    scale = 1e3
+    ticks = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(x*scale))
+    
+    fig, axes = plt.subplots(1,3, figsize=(20,5))
+    im0 = axes[0].imshow(wavefront.abs().numpy().squeeze(), extent=[input_plane.x.real.min(), input_plane.x.real.max(), input_plane.y.real.min(), input_plane.y.real.max()])
+    axes[0].xaxis.set_major_formatter(ticks)
+    axes[0].yaxis.set_major_formatter(ticks)
     axes[0].set_title("Input wavefront")
     divider = make_axes_locatable(axes[0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im0, cax=cax)
 
-    im1 = axes[1].imshow(output_wavefront0.abs().numpy())
+    im1 = axes[1].imshow(output_wavefront0.abs().numpy(), extent=[output_plane0.x.real.min(), output_plane0.x.real.max(), output_plane0.y.real.min(), output_plane0.y.real.max()])
+    axes[1].xaxis.set_major_formatter(ticks)
+    axes[1].yaxis.set_major_formatter(ticks)
     axes[1].set_title("Output wavefront (ASM)")
     divider = make_axes_locatable(axes[1])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im1, cax=cax)
 
-    im2 = axes[2].imshow(output_wavefront1.abs().numpy())
+    im2 = axes[2].imshow(output_wavefront1.abs().numpy(), extent=[output_plane1.x.real.min(), output_plane1.x.real.max(), output_plane1.y.real.min(), output_plane1.y.real.max()])
+    axes[2].xaxis.set_major_formatter(ticks)
+    axes[2].yaxis.set_major_formatter(ticks)
     axes[2].set_title("Output wavefront (RSC)")
     divider = make_axes_locatable(axes[2])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im2, cax=cax)
 
-    im3 = axes[3].imshow(difference)
-    axes[3].set_title("Difference")
-    divider = make_axes_locatable(axes[3])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im3, cax=cax)
+    #im3 = axes[3].imshow(difference)
+    #axes[3].set_title("Difference")
+    #divider = make_axes_locatable(axes[3])
+    #cax = divider.append_axes("right", size="5%", pad=0.05)
+    #plt.colorbar(im3, cax=cax)
 
-    axes[0].set_xlabel("x (m)")
-    axes[0].set_ylabel("y (m)")
-    axes[1].set_xlabel("x (m)")
-    axes[1].set_ylabel("y (m)")
-    axes[2].set_xlabel("x (m)")
-    axes[2].set_ylabel("y (m)")
-    axes[3].set_xlabel("x (m)")
-    axes[3].set_ylabel("y (m)")
+    #axes[3].set_xlabel("x (m)")
+    #axes[3].set_ylabel("y (m)")
 
 
     # Set the correct aspect ratio
     for ax in axes:
+        ax.set_xlabel("x (mm)")
+        ax.set_ylabel("y (mm)")
         ax.set_aspect('equal')
 
     plt.tight_layout()
-
     plt.show()
+    fig.savefig("propagation_smaller_more.pdf")
 
 

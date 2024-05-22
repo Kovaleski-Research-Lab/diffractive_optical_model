@@ -104,7 +104,7 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dft_matrix_x = dft_matrix_x.cuda()
+            dft_matrix_x = dft_matrix_x.to(g.device)
 
     # If the dft_matrix_y is not provided, create it
     if dft_matrix_y is None:
@@ -116,21 +116,23 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dft_matrix_y = dft_matrix_y.cuda()
+            dft_matrix_y = dft_matrix_y.to(g.device)
 
     # Perform the DFT along x-axis
     if backend == np:
-        g_dft_x = dft_matrix_x[0] @ g.permute(0, 2, 1)
+        g_dft_x = dft_matrix_x[0] @ g.transpose(0, 2, 1)
     elif backend == torch:
         g_dft_x = dft_matrix_x[0] @ g
 
     # Perform the DFT along y-axis
     if backend == np:
-        g_dft_xy = dft_matrix_y[0] @ g_dft_x.permute(0, 2, 1)
+        g_dft_xy = dft_matrix_y[0] @ g_dft_x.transpose(0, 2, 1)
+        g_dft_xy = g_dft_xy.transpose(0, 2, 1)
     elif backend == torch:
         g_dft_xy = dft_matrix_y[0] @ g_dft_x.permute(0, 2, 1)
+        g_dft_xy = g_dft_xy.permute(0, 2, 1)
 
-    return g_dft_xy.permute(0, 2, 1)
+    return g_dft_xy
 
 def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=None, dift_matrix_y=None, backend=BACKENDS["numpy"]):
 
@@ -152,7 +154,7 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dift_matrix_x = dift_matrix_x.cuda()
+            dift_matrix_x = dift_matrix_x.to(G.device)
 
     # If the dift_matrix_y is not provided, create it
     if dift_matrix_y is None:
@@ -164,17 +166,17 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
         # If the backend is torch, move it to the GPU if a device is available
         if backend == torch and torch.cuda.is_available():
-            dift_matrix_y = dift_matrix_y.cuda()
+            dift_matrix_y = dift_matrix_y.to(G.device)
 
     # Perform the DIFT using dot product along y-axis (columns)
     if backend == np:
-        g_reconstructed_y = dift_matrix_y[0] @ G.permute(0, 2, 1)
+        g_reconstructed_y = dift_matrix_y[0] @ G.transpose(0, 2, 1)
     elif backend == torch:
         g_reconstructed_y = dift_matrix_y[0] @ G.permute(0, 2, 1)
 
     # Perform the DIFT using dot product along x-axis (rows)
     if backend == np:
-        g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
+        g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.transpose(0, 2, 1)
     elif backend == torch:
         g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
 
