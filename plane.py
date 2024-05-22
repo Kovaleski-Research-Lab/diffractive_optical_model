@@ -1,6 +1,6 @@
-from os import name
 import torch
 from loguru import logger
+import numpy as np
 
 class Plane():
     def __init__(self, params:dict)->None:
@@ -28,47 +28,47 @@ class Plane():
 
     def fix_types(self):
         logger.debug("Fixing types for plane {}".format(self.name))
-        self.center_x = torch.tensor(self.center_x).float()
-        self.center_y = torch.tensor(self.center_y).float()
-        self.center_z = torch.tensor(self.center_z).float()
-        self.Lx = torch.tensor(self.Lx).float()
-        self.Ly = torch.tensor(self.Ly).float()
-        self.Nx = torch.tensor(self.Nx).int()
-        self.Ny = torch.tensor(self.Ny).int()
+        self.center_x = torch.tensor(self.center_x).to(torch.float64)
+        self.center_y = torch.tensor(self.center_y).to(torch.float64)
+        self.center_z = torch.tensor(self.center_z).to(torch.float64)
+        self.Lx = torch.tensor(self.Lx).to(torch.float64)
+        self.Ly = torch.tensor(self.Ly).to(torch.float64)
+        self.Nx = torch.tensor(self.Nx).to(torch.int64)
+        self.Ny = torch.tensor(self.Ny).to(torch.int64)
 
     def build_plane(self)->None:
         logger.debug("Building plane {}".format(self.name))
-        x = torch.round(torch.div(self.Lx, 2), decimals = 10)
-        y = torch.round(torch.div(self.Ly, 2), decimals = 10)
-        self.x = torch.linspace(-x, x, self.Nx)
-        self.y = torch.linspace(-y, y, self.Ny)
+        x = torch.div(self.Lx, 2)
+        y = torch.div(self.Ly, 2)
+        self.x = torch.linspace(-x, x, self.Nx, dtype=torch.complex128)
+        self.y = torch.linspace(-y, y, self.Ny, dtype=torch.complex128)
         
-        self.delta_x = torch.round(self.Lx / self.Nx, decimals = 10)
-        self.delta_y = torch.round(self.Ly / self.Ny, decimals = 10)
+        self.delta_x = torch.diff(self.x)[0]
+        self.delta_y = torch.diff(self.y)[0]
 
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
         # Added these to help with DNI propagation.
-        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*self.Nx)
-        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*self.Ny)
+        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*int(self.Nx), dtype=torch.complex128)
+        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*int(self.Ny), dtype=torch.complex128)
         self.xx_padded,self.yy_padded = torch.meshgrid(self.x_padded, self.y_padded, indexing='ij')
 
         # FFT frequencies
         # Added these to assist with CZT propagation.
-        self.fx = torch.fft.fftfreq(self.Nx, d=self.delta_x)
-        self.fy = torch.fft.fftfreq(self.Ny, d=self.delta_y)
+        # Need to convert the numpy initializations to a tensor to keep 128 bit precision.
+        self.fx = torch.tensor(np.fft.fftfreq(int(self.Nx), d=self.delta_x.numpy()))
+        self.fy = torch.tensor(np.fft.fftfreq(int(self.Ny), d=self.delta_y.numpy()))
         self.fxx,self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
 
-        self.delta_fx = torch.round(torch.diff(self.fx)[0], decimals = 10)
-        self.delta_fy = torch.round(torch.diff(self.fy)[0], decimals = 10)
+        self.delta_fx = torch.diff(self.fx)[0]
+        self.delta_fy = torch.diff(self.fy)[0]
 
-        self.fx_padded = torch.fft.fftfreq(2*self.Nx, d=self.delta_x)
-        self.fy_padded = torch.fft.fftfreq(2*self.Ny, d=self.delta_y)
+        self.fx_padded = torch.tensor(np.fft.fftfreq(2*int(self.Nx), d=self.delta_x.numpy()))
+        self.fy_padded = torch.tensor(np.fft.fftfreq(2*int(self.Ny), d=self.delta_y.numpy()))
         self.fxx_padded,self.fyy_padded = torch.meshgrid(self.fx_padded, self.fy_padded, indexing='ij')
 
-        self.delta_fx_padded = torch.round(torch.diff(self.fx_padded)[0], decimals = 10)
-        self.delta_fy_padded = torch.round(torch.diff(self.fy_padded)[0], decimals = 10)
-
+        self.delta_fx_padded = torch.diff(self.fx_padded)[0]
+        self.delta_fy_padded = torch.diff(self.fy_padded)[0]
 
     def print_info(self):
         logger.info("Plane {}:".format(self.name))
@@ -77,6 +77,24 @@ class Plane():
         logger.info("Samples: {}".format((self.Nx, self.Ny)))
         logger.info("Normal vector: {}".format(self.normal))
         logger.info("Rotation matrix: {}".format(self.rot))
+
+        logger.info("x dtype: {}".format(self.x.dtype))
+        logger.info("y dtype: {}".format(self.y.dtype))
+        logger.info("xx dtype: {}".format(self.xx.dtype))
+        logger.info("yy dtype: {}".format(self.yy.dtype))
+        logger.info("fx dtype: {}".format(self.fx.dtype))
+        logger.info("fy dtype: {}".format(self.fy.dtype))
+        logger.info("fxx dtype: {}".format(self.fxx.dtype))
+        logger.info("fyy dtype: {}".format(self.fyy.dtype))
+        logger.info("x_padded dtype: {}".format(self.x_padded.dtype))
+        logger.info("y_padded dtype: {}".format(self.y_padded.dtype))
+        logger.info("xx_padded dtype: {}".format(self.xx_padded.dtype))
+        logger.info("yy_padded dtype: {}".format(self.yy_padded.dtype))
+        logger.info("fx_padded dtype: {}".format(self.fx_padded.dtype))
+        logger.info("fy_padded dtype: {}".format(self.fy_padded.dtype))
+        logger.info("fxx_padded dtype: {}".format(self.fxx_padded.dtype))
+        logger.info("fyy_padded dtype: {}".format(self.fyy_padded.dtype))
+        
 
     def plot2d(self, ax):
         logger.debug("Plotting plane {}".format(self.name))

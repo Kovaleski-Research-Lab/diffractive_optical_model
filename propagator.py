@@ -184,13 +184,13 @@ class PropagatorFactory():
         fxx, fyy = input_plane.fxx_padded, input_plane.fyy_padded
 
         #Mask out non-propagating waves
-        mask = torch.sqrt(fxx**2 + fyy**2) < (1/wavelength)
+        mask = torch.sqrt(fxx**2 + fyy**2).real < (1/wavelength)
         fxx = mask * fxx
         fyy = mask * fyy
         
         #10.1364/JOSAA.401908 equation 28
         #Also Goodman eq 3-78
-        fz = torch.sqrt(1 - (wavelength*fxx)**2 - (wavelength*fyy)**2).double()
+        fz = torch.sqrt(1 - (wavelength*fxx)**2 - (wavelength*fyy)**2).real
         fz *= ((torch.pi * 2)/wavelength)
 
         # Get the axial distance between the input and output planes.
@@ -231,7 +231,7 @@ class PropagatorFactory():
         fxx, fyy = input_plane.fxx_padded, input_plane.fyy_padded
 
         #Mask out non-propagating waves
-        mask = torch.sqrt(fxx**2 + fyy**2) < (1/wavelength)
+        mask = torch.sqrt(fxx**2 + fyy**2).real < (1/wavelength)
         fxx = mask * fxx
         fyy = mask * fyy
 
@@ -248,9 +248,9 @@ class PropagatorFactory():
 
         #10.1364/JOSAA.401908 equation 29
         #Also Goodman eq 3-79
-        r = torch.sqrt((xx - x_shift)**2 + (yy - y_shift)**2 + distance**2).double()
-        k = (2 * torch.pi / wavelength).double()
-        z = distance.double()
+        r = torch.sqrt((xx - x_shift)**2 + (yy - y_shift)**2 + distance**2).real
+        k = (2 * torch.pi / wavelength)
+        z = distance
 
         # Initialize the impulse response
         h_rsc = torch.exp(torch.sign(distance) * 1j*k*r) / r
@@ -258,15 +258,8 @@ class PropagatorFactory():
         h_rsc *= (1/(2*torch.pi)) * (z/r)
 
         # Get the transfer function
-        H_me = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
-        H = torch.fft.fft2(h_rsc)
-        import matplotlib.pyplot as plt
-        fig,ax = plt.subplots(1,3)
-        ax[0].imshow(H.angle().squeeze().numpy())
-        ax[1].imshow(H_me.angle().squeeze().numpy())
-        ax[2].imshow(H.angle().squeeze().numpy() - H_me.angle().squeeze().numpy())
-        plt.show()
-        #H = H*mask
+        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
+        #H = torch.fft.fft2(h_rsc)
 
         # Normalize the transfer function
         mag = H.abs()
@@ -336,9 +329,8 @@ class Propagator(pl.LightningModule):
         A = dft_2d(input_wavefront, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, backend=torch)
         A = torch.fft.fftshift(A)
         U = A * self.H 
-        U = torch.fft.ifft2(U)
-        #U = dift_2d(U, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, self.output_plane.x_padded, self.output_plane.y_padded, backend=torch)
         U = torch.fft.ifftshift(U, dim=(-1,-2))
+        U = dift_2d(U, self.input_plane.x_padded, self.input_plane.y_padded, self.input_plane.fx_padded, self.input_plane.fy_padded, self.output_plane.x_padded, self.output_plane.y_padded, backend=torch)
         U = self.cc_output(U)
         return U
 
@@ -365,6 +357,7 @@ class Propagator(pl.LightningModule):
         return output_field
 
     def print_info(self):
+
         logger.debug("Propagator info:")
         logger.debug("Input plane: {}".format(self.input_plane))
         logger.debug("Output plane: {}".format(self.output_plane))
@@ -388,11 +381,11 @@ if __name__ == "__main__":
 
     output_plane_params0 = {
         'name': 'output_plane',
-        'size': torch.tensor([8.96e-3, 8.96e-3]),
+        'size': torch.tensor([20.96e-3, 20.96e-3]),
         'Nx': 1000,
         'Ny': 1000,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,50e-2])
+        'center': torch.tensor([0,0,11e-2])
     }
 
     output_plane_params1 = {
@@ -414,10 +407,8 @@ if __name__ == "__main__":
     }
 
     propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
-
     propagator_params['prop_type'] = 'rsc'
     propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
-    embed()
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
@@ -434,7 +425,7 @@ if __name__ == "__main__":
     output_wavefront1 = propagator1(wavefront).squeeze()
     #output_wavefront2 = propagator2(wavefront)
 
-    difference = np.abs(output_wavefront0.abs() - output_wavefront1.abs())
+    difference = output_wavefront0.abs()
 
     # Plot the input and output wavefronts
     import matplotlib.pyplot as plt
