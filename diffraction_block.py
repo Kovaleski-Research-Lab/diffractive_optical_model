@@ -45,26 +45,21 @@ if __name__ == "__main__":
 
     wavelength = torch.tensor(config['wavelength'])
 
-    focal_length0 = torch.tensor(50.e-6)
-
     plane0 = plane.Plane(config['planes'][0])
     plane1 = plane.Plane(config['planes'][1])
     plane2 = plane.Plane(config['planes'][2])
 
-    lens_phase_pattern0 = modulator.lensPhase(plane1, wavelength, focal_length0)
-
     propagator_params = config['propagator']
-
-    config['diffraction_blocks'][1]['modulator_params']['phase_pattern'] = lens_phase_pattern0
 
     db0 = DiffractionBlock(config['diffraction_blocks'][0])
     db1 = DiffractionBlock(config['diffraction_blocks'][1])
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
+    x,y = plane0.x, plane0.y
     xx,yy = plane0.xx, plane0.yy
     wavefront = torch.ones_like(xx)
-    #wavefront[(xx**2 + yy**2) > (0.2e-6)**2] = 0
+    wavefront[(xx.real**2 + yy.real**2) > (1.e-3)**2] = 0
     wavefront = wavefront.view(1,1,plane0.Nx,plane0.Ny)
 
     # Propagate the wavefront
@@ -77,9 +72,9 @@ if __name__ == "__main__":
     xx_out,yy_out = plane2.xx, plane2.yy
     # Plot the results
     fig, axs = plt.subplots(1,3)
-    axs[0].pcolormesh(xx.numpy(),yy.numpy(),wavefront[0,0,:,:].abs().numpy(), vmin=0, vmax=1)
-    axs[1].pcolormesh(xx_out.numpy(),yy_out.numpy(),wavefront0[0,0,:,:].abs().numpy())
-    axs[2].pcolormesh(xx_out.numpy(),yy_out.numpy(),wavefront1[0,0,:,:].abs().numpy())
+    axs[0].imshow(wavefront.squeeze().abs().numpy(), extent =  [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
+    axs[1].imshow(wavefront0.squeeze().abs().numpy(), extent = [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
+    axs[2].imshow(wavefront1.squeeze().abs().numpy(), extent = [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
 
     axs[0].set_title('Input')
     axs[1].set_title('Output 0')

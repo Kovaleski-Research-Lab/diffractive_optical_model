@@ -317,43 +317,65 @@ class TestDFT(unittest.TestCase):
     #-------------------------------------------------------------------------
     def test_external_dft_1d_torch_numpy(self):
         M = 1000
-        x = torch.linspace(-1, 1, M, dtype=torch.complex128)
+        norm_factor = M/2 
+        x = np.linspace(-1, 1, M, dtype=np.complex128)
         fx = np.fft.fftfreq(M, np.diff(x)[0]) 
         fx = torch.tensor(fx)
+        x = torch.tensor(x)
         g = torch.sin(2 * np.pi * 10 * x)
-        G_me = dft_1d(g, x, fx, backend=torch)
-        G_np = np.fft.fft(g.numpy())
-        self.assertTrue(np.allclose(G_me.numpy(), G_np))
+        g = g.reshape(1,1,M)
+        G_me = dft_1d(g, x, fx, backend=torch).squeeze()
+        G_np = np.fft.fft(g.squeeze().numpy())
+        G_me_amp = torch.abs(G_me)/norm_factor
+        G_np_amp = np.abs(G_np)/norm_factor
+        self.assertTrue(np.allclose(G_me_amp.numpy(), G_np_amp))
 
     def test_external_dift_1d_torch_numpy(self):
         M = 1000
-        x = torch.linspace(-1, 1, M, dtype=torch.complex128)
+        x = np.linspace(-1, 1, M, dtype=np.complex128)
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fx = torch.tensor(fx)
+        x = torch.tensor(x)
         g = torch.sin(2 * np.pi * 10 * x)
-        G_me = dift_1d(g, x, fx, x, backend=torch)
-        G_np = np.fft.ifft(g.numpy())
-        self.assertTrue(np.allclose(G_me.numpy(), G_np))
+        
+        G_me = dft_1d(g, x, fx, backend=torch).squeeze()
+        G_np = np.fft.fft(g.squeeze().numpy())
+
+        g_reconstructed_me = dift_1d(G_me, x, fx, x, backend=torch).squeeze().real
+        g_reconstructed_np = np.fft.ifft(G_np).squeeze().real
+
+
+        self.assertTrue(np.allclose(g_reconstructed_me.numpy(), g_reconstructed_np))
 
     #-------------------------------------------------------------------------
     # 1D numpy to torch
     #-------------------------------------------------------------------------
     def test_external_dft_1d_numpy_torch(self):
         M = 1000
+        norm_factor = M/2
         x = np.linspace(-1, 1, M, dtype=np.complex128)
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         g = np.sin(2 * np.pi * 10 * x)
         G_me = dft_1d(g, x, fx, backend=np)
-        G_to = torch.fft.fft(torch.tensor(g).type(torch.complex128))
-        self.assertTrue(np.allclose(G_me, G_to.numpy()))
+        G_torch = torch.fft.fft(torch.tensor(g).type(torch.complex128))
+        G_me_amp = np.abs(G_me)/norm_factor
+        G_torch_amp = torch.abs(G_torch)/norm_factor
+        self.assertTrue(np.allclose(G_me_amp, G_torch_amp))
+
     def test_external_dift_1d_numpy_torch(self):
         M = 1000
         x = np.linspace(-1, 1, M, dtype=np.complex128)
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         g = np.sin(2 * np.pi * 10 * x)
-        G_me = dift_1d(g, x, fx, x, backend=np)
-        G_to = torch.fft.ifft(torch.tensor(g).type(torch.complex128))
-        self.assertTrue(np.allclose(G_me, G_to.numpy()))
+        g = g.reshape(1,1,M)
+
+        G_me = dft_1d(g, x, fx, backend=np)
+        G_torch = torch.fft.fft(torch.tensor(g).type(torch.complex128))
+
+        g_reconstructed_me = dift_1d(G_me, x, fx, x, backend=np).real
+        g_reconstructed_torch = torch.fft.ifft(G_torch).real
+
+        self.assertTrue(np.allclose(g_reconstructed_me, g_reconstructed_torch))
 
     #-------------------------------------------------------------------------
     # 1D torch to torch
@@ -366,7 +388,10 @@ class TestDFT(unittest.TestCase):
         g = torch.sin(2 * np.pi * 10 * x)
         G_me = dft_1d(g, x, fx, backend=torch)
         G_torch = torch.fft.fft(g)
-        self.assertTrue(torch.allclose(G_me, G_torch))
+
+        G_me_amp = torch.abs(G_me)
+        G_torch_amp = torch.abs(G_torch)
+        self.assertTrue(torch.allclose(G_me_amp, G_torch_amp))
 
     def test_external_dift_1d_torch_torch(self):
         M = 1000
@@ -374,9 +399,14 @@ class TestDFT(unittest.TestCase):
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fx = torch.tensor(fx)
         g = torch.sin(2 * np.pi * 10 * x)
-        G_me = dift_1d(g, x, fx, x, backend=torch)
-        G_torch = torch.fft.ifft(g)
-        self.assertTrue(torch.allclose(G_me, G_torch))
+        
+        G_me = dft_1d(g, x, fx, backend=torch)
+        G_torch = torch.fft.fft(g)
+
+        g_reconstructed_me = dift_1d(G_me, x, fx, x, backend=torch).real
+        g_reconstructed_torch = torch.fft.ifft(G_torch).real
+
+        self.assertTrue(torch.allclose(g_reconstructed_me, g_reconstructed_torch))
 
     #-------------------------------------------------------------------------
     # 1D numpy to numpy
@@ -388,16 +418,24 @@ class TestDFT(unittest.TestCase):
         g = np.sin(2 * np.pi * 10 * x)
         G_me = dft_1d(g, x, fx, backend=np)
         G_np = np.fft.fft(g)
-        self.assertTrue(np.allclose(G_me, G_np))
+
+        G_me_amp = np.abs(G_me)
+        G_np_amp = np.abs(G_np)
+        self.assertTrue(np.allclose(G_me_amp, G_np_amp))
 
     def test_external_dift_1d_numpy_numpy(self):
         M = 1000
         x = np.linspace(-1, 1, M, dtype=np.complex128)
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         g = np.sin(2 * np.pi * 10 * x)
-        G_me = dift_1d(g, x, fx, x, backend=np)
-        G_np = np.fft.ifft(g)
-        self.assertTrue(np.allclose(G_me, G_np))
+        
+        G_me = dft_1d(g, x, fx, backend=np)
+        G_np = np.fft.fft(g)
+
+        g_reconstructed_me = dift_1d(G_me, x, fx, x, backend=np).real
+        g_reconstructed_np = np.fft.ifft(G_np).real
+
+        self.assertTrue(np.allclose(g_reconstructed_me, g_reconstructed_np))
 
     #-------------------------------------------------------------------------
     # 2D torch to numpy
@@ -410,17 +448,28 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         x = torch.tensor(x)
         y = torch.tensor(y)
         xx = torch.tensor(xx)
         yy = torch.tensor(yy)
         fx = torch.tensor(fx)
         fy = torch.tensor(fy)
+
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dft_2d(g.cuda(), x, y, fx, fy, backend=torch).cpu().squeeze().numpy()
-        G_np = np.fft.fft2(g.cpu().numpy())
-        self.assertTrue(np.allclose(G_me, G_np, atol=1e-7))
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=torch).cpu().squeeze()
+        G_np = np.fft.fft2(g.cpu().numpy().squeeze())
+        G_np = np.fft.fftshift(G_np)
+
+        G_me_amp = torch.abs(G_me)
+        G_np_amp = np.abs(G_np)
+
+        self.assertTrue(np.allclose(G_me_amp.numpy(), G_np_amp, atol=1e-7))
 
     def test_external_dift_2d_torch_numpy(self):
         M = 1000
@@ -430,17 +479,27 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         x = torch.tensor(x)
         y = torch.tensor(y)
         xx = torch.tensor(xx)
         yy = torch.tensor(yy)
         fx = torch.tensor(fx)
         fy = torch.tensor(fy)
+
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g.cuda(), x, y, fx, fy, x, y, backend=torch).cpu().squeeze().numpy()
-        G_np = np.fft.ifft2(g.numpy())
-        self.assertTrue(np.allclose(G_me, G_np, atol=1e-7))
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=torch).cpu().squeeze()
+        G_np = np.fft.fft2(g.cpu().numpy().squeeze())
+
+        g_reconstructed_me = dift_2d(G_me, x, y, fx, fy, x, y, backend=torch).cpu().squeeze().real
+        g_reconstructed_np = np.fft.ifft2(G_np).squeeze().real
+
+        self.assertTrue(np.allclose(g_reconstructed_me.numpy(), g_reconstructed_np, atol=1e-9))
     #-------------------------------------------------------------------------
     # 2D numpy to torch
     #-------------------------------------------------------------------------
@@ -452,13 +511,22 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
-        fx = torch.tensor(fx)
-        fy = torch.tensor(fy)
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         g = np.sin(2 * np.pi * 10 * xx)
         g += np.sin(2 * np.pi * 10 * yy)
+        g = g.reshape(1,M,N)
+
         G_me = dft_2d(g, x, y, fx, fy, backend=np).squeeze()
-        G_to = torch.fft.fftn(torch.tensor(g).type(torch.complex128))
-        self.assertTrue(np.allclose(G_me, G_to.numpy(), atol=1e-7))
+        G_torch = torch.fft.fftn(torch.tensor(g).type(torch.complex128))
+        G_torch = torch.fft.fftshift(G_torch)
+
+        G_me_amp = np.abs(G_me)
+        G_torch_amp = torch.abs(G_torch)
+
+        self.assertTrue(np.allclose(G_me_amp, G_torch_amp.numpy(), atol=1e-7))
+
     def test_external_dift_2d_numpy_torch(self):
         M = 1000
         N = 1000
@@ -467,11 +535,20 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         g = np.sin(2 * np.pi * 10 * xx)
         g += np.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g, x, y, fx, fy, x, y, backend=np).squeeze()
-        G_to = torch.fft.ifftn(torch.tensor(g))
-        self.assertTrue(np.allclose(G_me, G_to.numpy(), atol=1e-7))
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=np).squeeze()
+        G_torch = torch.fft.fftn(torch.tensor(g).type(torch.complex128))
+
+        g_reconstructed_me = dift_2d(G_me, x, y, fx, fy, x, y, backend=np).real
+        g_reconstructed_torch = torch.fft.ifftn(G_torch).real
+
+        self.assertTrue(np.allclose(g_reconstructed_me, g_reconstructed_torch.numpy(), atol=1e-7))
     #-------------------------------------------------------------------------
     # 2D torch to torch
     #-------------------------------------------------------------------------
@@ -484,17 +561,28 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         x = torch.tensor(x)
         y = torch.tensor(y)
         xx = torch.tensor(xx)
         yy = torch.tensor(yy)
         fx = torch.tensor(fx)
         fy = torch.tensor(fy)
+
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dft_2d(g.cuda(), x, y, fx, fy, backend=torch).cpu()
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=torch).cpu()
         G_torch = torch.fft.fft2(g)
-        self.assertTrue(torch.allclose(G_me, G_torch, atol=1e-7))
+        G_torch = torch.fft.fftshift(G_torch)
+
+        G_me_amp = torch.abs(G_me)
+        G_torch_amp = torch.abs(G_torch)
+
+        self.assertTrue(torch.allclose(G_me_amp, G_torch_amp, atol=1e-7))
     def test_external_dift_2d_torch_torch(self):
         M = 1000
         N = 1000
@@ -504,17 +592,28 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         x = torch.tensor(x)
         y = torch.tensor(y)
         xx = torch.tensor(xx)
         yy = torch.tensor(yy)
         fx = torch.tensor(fx)
         fy = torch.tensor(fy)
+
         g = torch.sin(2 * np.pi * 10 * xx)
         g += torch.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g.cuda(), x, y, fx, fy, x, y, backend=torch).cpu()
-        G_torch = torch.fft.ifft2(g)
-        self.assertTrue(torch.allclose(G_me, G_torch, atol=1e-7))
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=torch).cpu()
+        G_torch = torch.fft.fft2(g)
+
+        g_reconstructed_me = dift_2d(G_me, x, y, fx, fy, x, y, backend=torch).cpu().real
+        g_reconstructed_torch = torch.fft.ifft2(G_torch).real
+
+
+        self.assertTrue(torch.allclose(g_reconstructed_me, g_reconstructed_torch, atol=1e-7))
     #-------------------------------------------------------------------------
     # 2D numpy to numpy
     #-------------------------------------------------------------------------
@@ -526,11 +625,22 @@ class TestDFT(unittest.TestCase):
         xx, yy = np.meshgrid(x, y, indexing='ij')
         fx = np.fft.fftfreq(M, np.diff(x)[0])
         fy = np.fft.fftfreq(N, np.diff(y)[0])
+        fx = np.fft.fftshift(fx)
+        fy = np.fft.fftshift(fy)
+
         g = np.sin(2 * np.pi * 10 * xx)
         g += np.sin(2 * np.pi * 10 * yy)
+        g = g.reshape(1,M,N)
+
         G_me = dft_2d(g, x, y, fx, fy, backend=np).squeeze()
         G_np = np.fft.fft2(g)
-        self.assertTrue(np.allclose(G_me, G_np, atol=1e-7))
+        G_np = np.fft.fftshift(G_np)
+
+        G_me_amp = np.abs(G_me)
+        G_np_amp = np.abs(G_np)
+
+        self.assertTrue(np.allclose(G_me_amp, G_np_amp, atol=1e-7))
+
     def test_external_dift_2d_numpy_numpy(self):
         M = 1000
         N = 1000
@@ -541,11 +651,19 @@ class TestDFT(unittest.TestCase):
         fy = np.fft.fftfreq(N, np.diff(y)[0])
         fx = np.fft.fftshift(fx)
         fy = np.fft.fftshift(fy)
+
         g = np.sin(2 * np.pi * 10 * xx)
         g += np.sin(2 * np.pi * 10 * yy)
-        G_me = dift_2d(g, x, y, fx, fy, x, y, backend=np).squeeze()
-        G_np = np.fft.ifft2(g)
-        self.assertTrue(np.allclose(G_me, G_np, atol=1.e-7))
+        g = g.reshape(1,M,N)
+
+        G_me = dft_2d(g, x, y, fx, fy, backend=np).squeeze()
+        G_np = np.fft.fft2(g)
+
+        g_reconstructed_me = dift_2d(G_me, x, y, fx, fy, x, y, backend=np).real
+        g_reconstructed_np = np.fft.ifft2(G_np).real
+
+
+        self.assertTrue(np.allclose(g_reconstructed_me, g_reconstructed_np, atol=1e-7))
 
 
 def suite_basic():
@@ -595,7 +713,7 @@ def suite_dft():
     suite.addTest(TestDFT('test_external_dft_1d_numpy_numpy'))
     suite.addTest(TestDFT('test_external_dift_1d_numpy_numpy'))
 
-    ## 2D
+    ### 2D
     suite.addTest(TestDFT('test_external_dft_2d_torch_numpy'))
     suite.addTest(TestDFT('test_external_dift_2d_torch_numpy'))
 

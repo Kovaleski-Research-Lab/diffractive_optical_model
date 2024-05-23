@@ -562,20 +562,25 @@ if __name__ == "__main__":
     
     plane_params = { 
                 "name" : "test_plane",
-                "center" : (0,0),
+                "center" : (0,0,0),
                 "size" : (8.96e-3, 8.96e-3),
                 "Nx" : Nx,
                 "Ny" : Ny,
+                "normal" : (0,0,1),
             }
 
     #Need to create the geometry for the modulators
     test_plane = plane.Plane(plane_params)
     lens_params = {
-                "type" : 'phase_only',
+                "amplitude_init" : 'uniform',
                 "phase_init" : 'custom',
-                "amplitude_init": 'uniform',
-                "phase_pattern" : lensPhase(test_plane, wavelength, focal_length),
+                "gradients" : 'none',
+                "phase_pattern" : 'lens',
                 "amplitude_pattern" : None,
+                "kwargs":{
+                    "focal_length" : focal_length,
+                    "wavelength" : wavelength,
+                    },
             }
  
     mod_factory = ModulatorFactory()
@@ -589,22 +594,14 @@ if __name__ == "__main__":
     lens.print_info()
 
     random_params = {
-                "type" : 'phase_only',
+                "amplitude_init" : 'random',
                 "phase_init" : 'random',
-                "amplitude_init": 'random',
+                "gradients" : 'none',
                 "phase_pattern" : None,
                 "amplitude_pattern" : None,
+                "kwargs":{},
             }
 
     mod = mod_factory(test_plane, random_params)
     mod.print_info()
-
-    uniform_params = {
-                "type" : 'phase_only',
-                "phase_init" : 'uniform',
-                "amplitude_init": 'uniform',
-                "phase_pattern" : None,
-                "amplitude_pattern" : None,
-            }
-
 

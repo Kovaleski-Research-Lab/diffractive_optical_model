@@ -86,10 +86,6 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
     M = x.shape[0]
     N = y.shape[0]
 
-    # Get the spacing between the points
-    dx = backend.diff(x)[0]
-    dy = backend.diff(y)[0]
-
     # Get the index of the spatial signal
     m = backend.arange(M)
     n = backend.arange(N)
