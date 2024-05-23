@@ -21,10 +21,18 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 # Import: Custom Python Libraries
 #--------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
-from . import modulator
-from . import propagator
-from . import plane
-from . import diffraction_block
+sys.path.append(os.path.dirname(__file__))
+#from . import modulator
+#from . import propagator
+#from . import plane
+#from . import diffraction_block
+
+import modulator
+import propagator
+import plane
+import diffraction_block
+
+
 
 
 #-----------------------------------
@@ -104,7 +112,7 @@ class DON(LightningModule):
     #--------------------------------
    
     def configure_optimizers(self):
-        logging.debug("DON | setting optimizer to ADAM")
+        logger.debug("DON | setting optimizer to ADAM")
         optimizer = torch.optim.Adam(self.layers.parameters(), lr = self.learning_rate)
         return optimizer
 
