@@ -22,8 +22,8 @@ valid_rate: 1
 #--------------------------------
 
 paths: &id001
-  path_root: '/home/mblgh6/Documents/diffractive_optical_model'
-  #path_root: '/home/marshall/Documents/research/'
+  #path_root: '/home/mblgh6/Documents/diffractive_optical_model'
+  path_root: '/home/marshall/Documents/research/'
   #path_root: '/Users/marshalllindsay/research/diffractive_optical_model/'
   path_bench: 'optics_bench'
   path_sim: 'diffractive_optical_model'
@@ -64,16 +64,12 @@ transfer_learn_don: False
 load_checkpoint_don: False
 objective_function_don: 'mse'
 
-#Propagation
-wavelength: 1550.e-9 
-distance0 : 300.e-3
-distance1 : 100.e-3
-Nxp: 1080
+# Data
+Nxp: 1920
 Nyp: 1080
-Lxp: 8.96e-3
-  #Lyp: 15.36e-3
+Lxp: 15.36e-3
 Lyp: 8.96e-3
-adaptive: True
+  #Lyp: 8.96e-3
 
 #--------------------------------
 #       CITL Params
@@ -89,17 +85,6 @@ which: 'MNIST'
 n_cpus: 2
 resize_row: 1080
 resize_col: 1080
-data_split: 'mnist_1000perClass'
-calibration_pattern: 'flat_1080_1920.pt'
-#data_split: 'mnist_100perClass'
-#data_split: 'mnist_10perClass'
-#data_split: 'mnist_1perClass'
-#data_split: 'mnist_single0' #one
-#data_split: 'mnist_single1' #eight
-#data_split: 'mnist_10_1'
-#data_split: 'mnist_10_8'
-#data_split: 'mnist_100_1'
-#data_split: 'mnist_100_8'
 
 wavefront_transform:
     phase_initialization_strategy: 0
@@ -109,25 +94,23 @@ planes:
   0: &idpl00
     name: 'plane0'
     center: [0,0,0]
-      #size: [8.96e-3, 15.36e-3]
-    size: [8.96e-3, 8.96e-3]
+    size: [15.36e-3, 8.96e-3]
     normal: [0,0,1]
-    Nx: 1080
+    Nx: 1920
     Ny: 1080
   1: &idpl01
     name: 'plane1'
-    center: [0,0,20.e-2]
-      #size: [8.96e-3, 15.36e-3]
-    size: [8.96e-3, 8.96e-3]
+    center: [0,0,10.e-2]
+    size: [15.36e-3, 8.96e-3]
     normal: [0,0,1]
-    Nx: 1080
+    Nx: 1920
     Ny: 1080
   2: &idpl02
     name: 'plane2'
-    center: [1.e-2,0,40.e-2]
-    size: [8.96e-3, 8.96e-3]
+    center: [0,0,20.e-2]
+    size: [15.36e-3, 8.96e-3]
     normal: [0,0,1]
-    Nx: 1080
+    Nx: 1920
     Ny: 1080
 
 modulators:
@@ -140,15 +123,16 @@ modulators:
     kwargs:
   1: &idm01
     amplitude_init : 'uniform'
-    phase_init : 'random'
+    phase_init : 'custom'
     gradients : 'phase_only'
     phase_pattern : 'lens'
     amplitude_pattern : None
     kwargs:
-      focal_length: 10.e-2
-      wavelength: 1.55e-6 
+      focal_length: 5.e-2
+      wavelength: 1.55e-6
 
 propagator: &idprop
+  prop_type: 
   wavelength: 1.55e-6
 
 diffraction_blocks:

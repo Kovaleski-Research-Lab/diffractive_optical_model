@@ -2,11 +2,16 @@
 import torch
 from loguru import logger
 import pytorch_lightning as pl
+import sys
 
 # Custom library imports
-from . import plane
-from . import modulator
-from . import propagator
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.dirname(__file__))
+import plane
+import modulator
+import propagator
 
 class DiffractionBlock(pl.LightningModule):
     def __init__(self, params):
@@ -35,41 +40,43 @@ if __name__ == "__main__":
     import yaml 
     config = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
-    wavelength = torch.tensor(config['wavelength'])
-
-    focal_length0 = torch.tensor(10.e-2)
+    wavelength = torch.tensor(config['propagator']['wavelength'])
 
     plane0 = plane.Plane(config['planes'][0])
     plane1 = plane.Plane(config['planes'][1])
-
-    lens_phase_pattern0 = modulator.lensPhase(plane1, wavelength, focal_length0)
+    plane2 = plane.Plane(config['planes'][2])
 
     propagator_params = config['propagator']
-
-    config['diffraction_blocks'][1]['modulator_params']['phase_pattern'] = lens_phase_pattern0
 
     db0 = DiffractionBlock(config['diffraction_blocks'][0])
     db1 = DiffractionBlock(config['diffraction_blocks'][1])
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
+    x,y = plane0.x, plane0.y
     xx,yy = plane0.xx, plane0.yy
     wavefront = torch.ones_like(xx)
-    wavefront[(xx**2 + yy**2) > (0.2e-3)**2] = 0
+    wavefront[(xx.real**2 + yy.real**2) > (1.e-3)**2] = 0
     wavefront = wavefront.view(1,1,plane0.Nx,plane0.Ny)
 
     # Propagate the wavefront
     wavefront0 = db0(wavefront)
-    wavefront1 = db1(wavefront0)
+    wavefront1 = db1(wavefront0).detach()
 
+    import matplotlib.pyplot as plt
     from IPython import embed; embed()
 
+    x_in,y_in = plane0.x, plane0.y
+    xx_in,yy_in = plane0.xx, plane0.yy
+    x_lens,y_lens = plane1.x, plane1.y
+    xx_lens,yy_lens = plane1.xx, plane1.yy
+    x_out,y_out = plane2.x, plane2.y
+    xx_out,yy_out = plane2.xx, plane2.yy
     # Plot the results
-    import matplotlib.pyplot as plt
     fig, axs = plt.subplots(1,3)
-    axs[0].pcolormesh(xx.numpy(),yy.numpy(),wavefront[0,0,:,:].abs().numpy())
-    axs[1].pcolormesh(xx.numpy(),yy.numpy(),wavefront0[0,0,:,:].abs().numpy())
-    axs[2].pcolormesh(xx.numpy(),yy.numpy(),wavefront1[0,0,:,:].abs().numpy())
+    axs[0].imshow(wavefront.T.squeeze().abs().numpy())
+    axs[1].imshow(wavefront0.T.squeeze().abs().numpy())
+    axs[2].imshow(wavefront1.T.squeeze().abs().numpy())
 
     axs[0].set_title('Input')
     axs[1].set_title('Output 0')
