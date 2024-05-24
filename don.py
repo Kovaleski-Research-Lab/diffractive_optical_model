@@ -7,6 +7,7 @@ import sys
 import torch
 from loguru import logger
 import torchmetrics
+from IPython import embed
 
 #--------------------------------
 # Import: PyTorch Libraries
@@ -22,10 +23,6 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 #--------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(os.path.dirname(__file__))
-#from . import modulator
-#from . import propagator
-#from . import plane
-#from . import diffraction_block
 
 import modulator
 import propagator
@@ -86,12 +83,12 @@ class DON(LightningModule):
     #--------------------------------
     
     def run_don_metrics(self, don_outputs):
-        #wavefronts = don_outputs[0]
-        #amplitudes = don_outputs[1] 
-        #normalized_amplitudes = don_outputs[2]
-        #images = don_outputs[3]
-        #normalized_images = don_outputs[4]
-        #don_target = don_outputs[5]
+        wavefronts = don_outputs[0]
+        amplitudes = don_outputs[1] 
+        normalized_amplitudes = don_outputs[2]
+        images = don_outputs[3]
+        normalized_images = don_outputs[4]
+        don_target = don_outputs[5]
         mse_vals = mse(normalized_images.detach(), don_target.detach())
         psnr_vals = psnr(normalized_images.detach(), don_target.detach())
         ssim_vals = ssim(normalized_images.detach(), don_target.detach()).detach() #type: ignore
@@ -159,7 +156,9 @@ class DON(LightningModule):
              
     def training_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
+
         loss = self.objective(outputs['images'], batch[0].squeeze().abs()**2)
+
         self.log("train_loss", loss, prog_bar = True) #type: ignore
 
         ## Detach the tensors in the outputs dictionary 
@@ -174,7 +173,9 @@ class DON(LightningModule):
                 
     def validation_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
+
         loss = self.objective(outputs['images'], batch[0].squeeze().abs()**2)
+
         self.log("val_loss", loss, prog_bar = True) #type: ignore
 
         # Detach the tensors in the outputs dictionary

@@ -15,8 +15,9 @@ from torch.utils.data import DataLoader
 #--------------------------------
 
 import sys
-sys.path.append('../')
-from . import custom_transforms as ct
+sys.path.append(os.path.join(os.path.dirname(__file__)))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import custom_transforms as ct
 
 import torch
 import numpy as np
@@ -38,7 +39,6 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
         self.path_data = os.path.join(self.path_root,self.path_data)
         logger.debug("Setting path_data to {}".format(self.path_data))
         self.batch_size = self.params['batch_size']
-        self.data_split = self.params['data_split']
         self.initialize_transform()
         self.initialize_cpus(self.n_cpus)
 
@@ -69,14 +69,10 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
         MNIST(self.path_data, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None):
-        logger.debug("Setup() with datasplit = {}".format(self.data_split))
-        train_file = f'MNIST/{self.data_split}.split'
-        valid_file = 'MNIST/valid.split'
-
-        test_file = 'MNIST/test.split'
-        train_data = torch.load(os.path.join(self.path_data, train_file))
-        valid_data = torch.load(os.path.join(self.path_data, valid_file))
-        test_data = torch.load(os.path.join(self.path_data, test_file))
+        logger.debug("Setup()")
+        train_data = MNIST(self.path_data, train=True, download=False)
+        valid_data = MNIST(self.path_data, train=False, download=False)
+        test_data = MNIST(self.path_data, train=False, download=False)
 
         if stage == "fit" or stage is None:
             self.mnist_train = customDataset(train_data, self.transform)
@@ -121,9 +117,8 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
 class customDataset(Dataset):
     def __init__(self, data, transform):
         logger.debug("Initializing customDataset")
-        self.samples, self.targets = data[0], data[1]
-        #shape = data[0].shape
-        #self.samples = torch.ones(shape)
+        self.samples = data.data
+        self.targets = data.targets
 
         if len(self.samples.shape) < 4:
             self.samples = torch.unsqueeze(self.samples, dim=1)
@@ -140,11 +135,8 @@ class customDataset(Dataset):
     def __getitem__(self, idx):
         sample,target = self.samples[idx], self.targets[idx]
         sample = self.transform(sample)
-        #target = self.transform(target)
+        target = self.transform(target)
         slm_sample = (sample.abs() * 63).to(torch.uint8)
-
-        #target = torch.nn.functional.one_hot(torch.tensor(target), num_classes=10)
-
         return sample, slm_sample, target
 
 #--------------------------------
@@ -183,6 +175,8 @@ if __name__=="__main__":
 
     #View some of the data
     images,slm_sample, labels = next(iter(dm.train_dataloader()))
+
+    from IPython import embed; embed()
 
     print(images[0])
     print(dm.train_dataloader().__len__())

@@ -9,9 +9,6 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.dirname(__file__))
-#from . import plane
-#from . import modulator
-#from . import propagator
 import plane
 import modulator
 import propagator
@@ -43,7 +40,7 @@ if __name__ == "__main__":
     import yaml 
     config = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
-    wavelength = torch.tensor(config['wavelength'])
+    wavelength = torch.tensor(config['propagator']['wavelength'])
 
     plane0 = plane.Plane(config['planes'][0])
     plane1 = plane.Plane(config['planes'][1])
@@ -69,12 +66,17 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from IPython import embed; embed()
 
+    x_in,y_in = plane0.x, plane0.y
+    xx_in,yy_in = plane0.xx, plane0.yy
+    x_lens,y_lens = plane1.x, plane1.y
+    xx_lens,yy_lens = plane1.xx, plane1.yy
+    x_out,y_out = plane2.x, plane2.y
     xx_out,yy_out = plane2.xx, plane2.yy
     # Plot the results
     fig, axs = plt.subplots(1,3)
-    axs[0].imshow(wavefront.squeeze().abs().numpy(), extent =  [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
-    axs[1].imshow(wavefront0.squeeze().abs().numpy(), extent = [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
-    axs[2].imshow(wavefront1.squeeze().abs().numpy(), extent = [x.real.min(), x.real.max(), y.real.min(), y.real.max()])
+    axs[0].imshow(wavefront.T.squeeze().abs().numpy())
+    axs[1].imshow(wavefront0.T.squeeze().abs().numpy())
+    axs[2].imshow(wavefront1.T.squeeze().abs().numpy())
 
     axs[0].set_title('Input')
     axs[1].set_title('Output 0')

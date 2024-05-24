@@ -79,7 +79,11 @@ def dift_1d(G, x, fx, x_reconstruction, dift_matrix=None, backend=BACKENDS["nump
 def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKENDS["numpy"]):
 
     # Make sure g is in B,M,N format
-    if len(g.shape) != 3:
+    if len(g.shape) == 4:
+        g = g.squeeze()
+        g = g.reshape(g.shape[0],g.shape[-2],g.shape[-1])
+    elif len(g.shape) != 3:
+        g = g.squeeze()
         g = g.reshape(1,g.shape[-2],g.shape[-1])
 
     # Get the shape of the input signal
@@ -133,7 +137,11 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=None, dift_matrix_y=None, backend=BACKENDS["numpy"]):
 
     # Make sure G is in B,M,N format
-    if len(G.shape) != 3:
+    if len(G.shape) == 4:
+        G = G.squeeze()
+        G = G.reshape(G.shape[0],G.shape[-2],G.shape[-1])
+    elif len(G.shape) != 3:
+        G = G.squeeze()
         G = G.reshape(1,G.shape[-2],G.shape[-1])
 
     # Get the shape of the input signal
