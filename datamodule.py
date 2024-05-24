@@ -46,13 +46,14 @@ class Wavefront_MNIST_DataModule(LightningDataModule):
         resize_row = self.params['resize_row']
         resize_col = self.params['resize_col']
 
-        pad_x = int(torch.div((self.Nx - resize_row), 2, rounding_mode='floor'))
-        pad_y = int(torch.div((self.Ny - resize_col), 2, rounding_mode='floor'))
+        pad_x = int(torch.div((self.Nx - resize_col), 2, rounding_mode='floor'))
+        pad_y = int(torch.div((self.Ny - resize_row), 2, rounding_mode='floor'))
 
         padding = (pad_y, pad_x, pad_y, pad_x)
 
         self.transform = transforms.Compose([
                 transforms.Resize((resize_row, resize_col), antialias=True), # type: ignore
+                transforms.RandomRotation((90,90)),
                 transforms.Pad(padding),
                 ct.Threshold(0.2),
                 ct.WavefrontTransform(self.params['wavefront_transform'])])
@@ -120,11 +121,6 @@ class customDataset(Dataset):
         self.samples = data.data
         self.targets = data.targets
 
-        if len(self.samples.shape) < 4:
-            self.samples = torch.unsqueeze(self.samples, dim=1)
-        if self.samples.shape[1] > 3:
-            self.samples = torch.swapaxes(self.samples, 1,-1)
-
         self.targets = self.samples
         self.transform = transform
         logger.debug("Setting transform to {}".format(self.transform))
@@ -134,6 +130,8 @@ class customDataset(Dataset):
 
     def __getitem__(self, idx):
         sample,target = self.samples[idx], self.targets[idx]
+        sample = sample.unsqueeze(0)
+        target = target.unsqueeze(0)
         sample = self.transform(sample)
         target = self.transform(target)
         slm_sample = (sample.abs() * 63).to(torch.uint8)
@@ -164,10 +162,12 @@ if __name__=="__main__":
     os.environ['SLURM_JOB_ID'] = '0'
     #plt.style.use(['science'])
 
+
     #Load config file   
     params = yaml.load(open('config.yaml'), Loader = yaml.FullLoader).copy()
     params['batch_size'] = 3
     params['model_id'] = "test_0"
+    params['paths']['path_root'] = os.getcwd()
     
     dm = select_data(params)
     dm.prepare_data()

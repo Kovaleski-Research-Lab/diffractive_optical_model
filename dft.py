@@ -77,25 +77,20 @@ def dift_1d(G, x, fx, x_reconstruction, dift_matrix=None, backend=BACKENDS["nump
     return result.T
 
 def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKENDS["numpy"]):
-
+        
     # Make sure g is in B,M,N format
     if len(g.shape) == 4:
+        b,c,w,h = g.shape
         g = g.squeeze()
-        g = g.reshape(g.shape[0],g.shape[-2],g.shape[-1])
+        g = g.reshape(b,w,h)
     elif len(g.shape) != 3:
         g = g.squeeze()
         g = g.reshape(1,g.shape[-2],g.shape[-1])
 
-    # Get the shape of the input signal
-    M = x.shape[0]
-    N = y.shape[0]
-
-    # Get the index of the spatial signal
-    m = backend.arange(M)
-    n = backend.arange(N)
-
     # If the dft_matrix_x is not provided, create it
     if dft_matrix_x is None:
+        M = x.shape[0]
+        m = backend.arange(M)
         dft_matrix_x = backend.exp(-2j * backend.pi * backend.outer(fx, x))
         if backend == np:
             dft_matrix_x = dft_matrix_x.reshape(1, fx.shape[0], m.shape[0])
@@ -108,6 +103,8 @@ def dft_2d(g, x, y, fx, fy, dft_matrix_x=None, dft_matrix_y=None, backend=BACKEN
 
     # If the dft_matrix_y is not provided, create it
     if dft_matrix_y is None:
+        N = y.shape[0]
+        n = backend.arange(N)
         dft_matrix_y = backend.exp(-2j * backend.pi * backend.outer(fy, y))
         if backend == np:
             dft_matrix_y = dft_matrix_y.reshape(1, fy.shape[0], n.shape[0])
@@ -138,18 +135,18 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
     # Make sure G is in B,M,N format
     if len(G.shape) == 4:
+        b,c,w,h = G.shape
         G = G.squeeze()
-        G = G.reshape(G.shape[0],G.shape[-2],G.shape[-1])
+        G = G.reshape(b,w,h)
     elif len(G.shape) != 3:
         G = G.squeeze()
         G = G.reshape(1,G.shape[-2],G.shape[-1])
 
-    # Get the shape of the input signal
-    M = x.shape[0]
-    N = y.shape[0]
+
 
     # If the dift_matrix_x is not provided, create it
     if dift_matrix_x is None:
+        M = x.shape[0]
         dift_matrix_x = backend.exp(2j * backend.pi * backend.outer(x_reconstruction, fx)) / M
         if backend == np:
             dift_matrix_x = dift_matrix_x.reshape(1, x_reconstruction.shape[0], fx.shape[0])
@@ -162,6 +159,7 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
 
     # If the dift_matrix_y is not provided, create it
     if dift_matrix_y is None:
+        N = y.shape[0]
         dift_matrix_y = backend.exp(2j * backend.pi * backend.outer(y_reconstruction, fy)) / N
         if backend == np:
             dift_matrix_y = dift_matrix_y.reshape(1, y_reconstruction.shape[0], fy.shape[0])
@@ -184,7 +182,7 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
     elif backend == torch:
         g_reconstructed = dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
 
-    return g_reconstructed
+    return g_reconstructed.unsqueeze(1)
 
 
 if __name__ == "__main__":

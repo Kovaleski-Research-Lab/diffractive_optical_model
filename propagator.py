@@ -218,7 +218,6 @@ class PropagatorFactory():
         self.dift_matrix_x = torch.exp(2j * torch.pi * torch.outer(output_plane.x_padded, fx)).unsqueeze(0) / M
         self.dift_matrix_y = torch.exp(2j * torch.pi * torch.outer(output_plane.y_padded, fy)).unsqueeze(0) / N
 
-
     def init_asm_transfer_function(self, input_plane, output_plane, wavelength): 
         logger.debug("Initializing ASM transfer function")
 
@@ -330,11 +329,11 @@ class Propagator(pl.LightningModule):
         self.padding = (pady,pady,padx,padx)    
 
         if dft_matrices is not None:
-            self.dft_matrix_x = dft_matrices[0]
-            self.dft_matrix_y = dft_matrices[1]
+            self.register_buffer('dft_matrix_x', dft_matrices[0])
+            self.register_buffer('dft_matrix_y', dft_matrices[1])
         if dift_matrices is not None:
-            self.dift_matrix_x = dift_matrices[0]
-            self.dift_matrix_y = dift_matrices[1]
+            self.register_buffer('dift_matrix_x', dift_matrices[0])
+            self.register_buffer('dift_matrix_y', dift_matrices[1])
 
     def forward(self, input_wavefront):
         # Pad the wavefront

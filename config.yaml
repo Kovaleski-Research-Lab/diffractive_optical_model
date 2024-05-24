@@ -23,8 +23,9 @@ valid_rate: 1
 
 paths: &id001
   #path_root: '/home/mblgh6/Documents/diffractive_optical_model'
-  path_root: '/home/marshall/Documents/research/'
+  #path_root: '/home/marshall/Documents/research/'
   #path_root: '/Users/marshalllindsay/research/diffractive_optical_model/'
+  path_root: 
   path_bench: 'optics_bench'
   path_sim: 'diffractive_optical_model'
   

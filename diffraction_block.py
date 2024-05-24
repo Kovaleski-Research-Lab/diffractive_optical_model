@@ -32,7 +32,9 @@ class DiffractionBlock(pl.LightningModule):
         self.propagator = propagator_factory(input_plane, output_plane, propagator_params)
 
     def forward(self, input_wavefront=None):
-        return(self.propagator(self.modulator(input_wavefront)))
+        modulated_wavefront = self.modulator(input_wavefront)
+        propagated_wavefront = self.propagator(modulated_wavefront)
+        return propagated_wavefront
 
 
 if __name__ == "__main__":

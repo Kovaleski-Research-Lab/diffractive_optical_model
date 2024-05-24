@@ -29,6 +29,9 @@ def run(params):
     if params['seed'][0]:
         seed_everything(params['seed'][1], workers = True)
 
+    # Set the root path
+    params['paths']['path_root'] = os.getcwd()
+
     # Initialize: The model
     model = don.DON(params)
 
@@ -58,7 +61,7 @@ def run(params):
     if(params['gpu_config'][0] and torch.cuda.is_available()):
         logging.debug("Training with GPUs")
         trainer = Trainer(accelerator = "cuda", num_nodes = 1, 
-                          num_sanity_val_steps = 1,
+                          num_sanity_val_steps = 0,
                           devices = gpu_list, max_epochs = num_epochs, 
                           deterministic=True, enable_progress_bar=True, enable_model_summary=True,
                           default_root_dir = path_root, callbacks = [checkpoint_callback],
