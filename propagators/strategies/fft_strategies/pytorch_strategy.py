@@ -3,8 +3,8 @@ from .strategy import FFTStrategy
 
 class PyTorchFFTStrategy(FFTStrategy):
     def fft(self, data):
-        return torch.fft.fft(data)
+        return torch.fft.fftn(data)
 
     def ifft(self, data):
-        return torch.fft.ifft(data)
+        return torch.fft.ifftn(data)
 

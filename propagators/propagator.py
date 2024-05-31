@@ -18,5 +18,5 @@ class Propagator(pl.LightningModule):
 
     def forward(self, input_wavefront):
         input_wavefront = torch.nn.functional.pad(input_wavefront, self.padding, mode="constant")
-        return self.propagation_strategy.propagate(input_wavefront, self.fft_strategy)
+        return self.cc_output(self.propagation_strategy.propagate(input_wavefront, self.fft_strategy))
 

@@ -2,6 +2,11 @@ import torch
 from .strategy import PropagationStrategy
 
 class RSCStrategy(PropagationStrategy):
+    def __init__(self, input_plane, output_plane, wavelength):
+        self.input_plane = input_plane
+        self.output_plane = output_plane
+        self.wavelength = wavelength
+        self.H = self.get_transfer_function()
     def get_transfer_function(self):
         xx, yy = self.input_plane.xx_padded, self.input_plane.yy_padded
 
@@ -38,8 +43,8 @@ class RSCStrategy(PropagationStrategy):
     def propagate(self, input_wavefront, fft_strategy):
         A = fft_strategy.fft(input_wavefront)
         A = torch.fft.fftshift(A)
-        U = A * self.get_transfer_function()
-        U = torch.fft.ifftshift(U, dim=(-1, -2))
+        U = A * self.H
         U = fft_strategy.ifft(U)
+        U = torch.fft.ifftshift(U, dim=(-1, -2))
         return U
 

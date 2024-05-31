@@ -353,7 +353,6 @@ class Propagator(pl.LightningModule):
         #A = torch.fft.fft2(input_wavefront)
         A = self.dft(input_wavefront)
         A = torch.fft.fftshift(A)
-        from IPython import embed; embed()
         U = A * self.H 
         U = torch.fft.ifftshift(U, dim=(-1,-2))
         U = self.dift(U)

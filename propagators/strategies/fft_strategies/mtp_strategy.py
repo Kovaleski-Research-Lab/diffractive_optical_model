@@ -5,6 +5,8 @@ class MTPFFTStrategy(FFTStrategy):
     def __init__(self, input_plane, output_plane):
         self.input_plane = input_plane
         self.output_plane = output_plane
+        self.create_dft_matrices()
+        self.create_idft_matrices()
 
     def create_dft_matrices(self):
         dx_input = self.input_plane.delta_x
