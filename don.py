@@ -30,8 +30,6 @@ import plane
 import diffraction_block
 
 
-
-
 #-----------------------------------
 # Model: Diffractive optical Network
 #-----------------------------------

@@ -76,12 +76,12 @@ class oldModulator(pl.LightningModule):
 
     def set_amplitude(self, amplitude):
         amplitude = torch.tensor(amplitude).view(1,1,self.Nxm, self.Nym)
-        self.amplitude = torch.nn.Parameter(amplitude)
+        self.amplitude = torch.nn.Parameter(amplitude).to(torch.double)
         self.initialize_gradients()
 
     def set_phase(self, phase):
         phase = torch.tensor(phase).view(1,1,self.Nxm, self.Nym)
-        self.phase = torch.nn.Parameter(phase)
+        self.phase = torch.nn.Parameter(phase).to(torch.double)
         self.initialize_gradients()
 
     def save_calibration(self):
@@ -197,11 +197,11 @@ class oldModulator(pl.LightningModule):
     def init_amplitude(self) -> torch.nn.Parameter:
         logging.debug("Modulator | setting amplitude initialization to torch.ones()")
         if self.amplitude_initialization == 'uniform':
-            amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym))
+            amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym).to(torch.float64))
         elif self.amplitude_initialization == 'random':
-            amplitude = torch.nn.Parameter(torch.rand(1,1,self.Nxm, self.Nym))
+            amplitude = torch.nn.Parameter(torch.rand(1,1,self.Nxm, self.Nym).to(torch.float64))
         else:
-            amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym))
+            amplitude = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym).to(torch.float64))
         return amplitude
 
     #--------------------------------
@@ -212,16 +212,16 @@ class oldModulator(pl.LightningModule):
         phase = None
         if self.phase_initialization == "uniform":
             logging.debug("Modulator | setting phase initialization to torch.ones()")
-            phase = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym))
+            phase = torch.nn.Parameter(torch.ones(1,1,self.Nxm, self.Nym).to(torch.float64))
         elif self.phase_initialization == "random":
             logging.debug("Modulator | setting phase initialization to torch.rand()")
-            phase = torch.nn.Parameter(torch.rand(1,1,self.Nxm, self.Nym))
+            phase = torch.nn.Parameter(torch.rand(1,1,self.Nxm, self.Nym).to(torch.float64))
         elif self.phase_initialization == "lens":
             self.focal_length = torch.tensor(self.params['focal_length'])
             phase = -(self.xx**2 + self.yy**2) / ( 2 * self.focal_length )
             phase *= (2 * torch.pi / self.wavelength)
             phase = phase.view(1,1,self.Nxm,self.Nym)
-            phase = torch.nn.Parameter(phase)
+            phase = torch.nn.Parameter(phase.to(torch.float64))
 
         return phase
 
@@ -381,22 +381,22 @@ class ModulatorFactory():
     def random_phase(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
         phase = torch.rand(1,1,Nx, Ny)
-        return phase
+        return phase.to(torch.float64)
 
     def random_amplitude(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
         amplitude = torch.rand(Nx, Ny)
-        return amplitude
+        return amplitude.to(torch.float64)
 
     def uniform_phase(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
         phase = torch.zeros(Nx, Ny)
-        return phase
+        return phase.to(torch.float64)
 
     def uniform_amplitude(self, plane:plane.Plane) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
         amplitude = torch.ones(Nx, Ny)
-        return amplitude
+        return amplitude.to(torch.float64)
 
     def custom_phase(self, plane:plane.Plane, phase_pattern) -> torch.Tensor:
         logger.debug("Creating custom phase")
@@ -416,13 +416,13 @@ class ModulatorFactory():
                 focal_length = torch.tensor(self.kwargs['focal_length'])
                 wavelength = torch.tensor(self.kwargs['wavelength'])
                 #Create the lens phase
-                phase = lensPhase(plane, wavelength, focal_length) 
+                phase = lensPhase(plane, wavelength, focal_length)
         else:
             logger.warning("Unsupported phase pattern : {}".format(phase_pattern))
             logger.warning("Setting uniform phase pattern")
             phase = self.uniform_phase(plane)
             raise Exception('unsupportedInitialization')
-        return phase # type: ignore
+        return phase.to(torch.float64) # type: ignore
 
     def custom_amplitude(self, plane:plane.Plane, amplitude_pattern:torch.Tensor) -> torch.Tensor:
         Nx, Ny = plane.Nx, plane.Ny
@@ -430,7 +430,7 @@ class ModulatorFactory():
         shape = amplitude_pattern.shape
         assert Nx == shape[-2]
         assert Ny == shape[-1]
-        return amplitude
+        return amplitude.to(torch.float64)
 
 class Modulator(pl.LightningModule):
     def __init__(self, plane:plane.Plane, amplitude:torch.Tensor, phase:torch.Tensor):
