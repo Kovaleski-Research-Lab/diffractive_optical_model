@@ -11,7 +11,7 @@ from IPython import embed
 
 #from . import plane
 import plane
-from dft import dft_2d, dift_2d
+from dft import DFT, DIFT
 
 
 #--------------------------------
@@ -66,8 +66,9 @@ class PropagatorFactory():
         else:
             wavelength = params['wavelength']
 
-        # Create dft matrices
-        self.build_dft_matrices(input_plane, output_plane)
+        # Create the DFT and DIFT functions
+        self.dft = DFT(input_plane, output_plane)
+        self.dift = DIFT(input_plane, output_plane)
 
         # Pick the propagator
         # Used the specifed. Else, check the distance and use the appropriate propagator
@@ -99,7 +100,7 @@ class PropagatorFactory():
         
 
         # Create the propagator
-        propagator = Propagator(input_plane, output_plane, prop_function, prop_type, dft_matrices=(self.dft_matrix_x, self.dft_matrix_y), dift_matrices=(self.dift_matrix_x, self.dift_matrix_y))
+        propagator = Propagator(input_plane, output_plane, prop_function, prop_type, self.dft, self.dift)
         return propagator
 
 
@@ -185,44 +186,25 @@ class PropagatorFactory():
     
         return(torch.le(distance, strict_distance))
 
-
-    def build_dft_matrices(self, input_plane, output_plane):
-        M = input_plane.Nx
-        N = output_plane.Nx
-
-        # Get the spatial sample spacing for the input and output planes
-        # The sampling is assumed to be the same in the x and y directions
-        dx_input = input_plane.delta_x
-        dy_input = input_plane.delta_y
-
-        dy_output = output_plane.delta_y
-        dx_output = output_plane.delta_x
-
-        # The sample spacings will determine which of the planes is limited by the other
-        # Smaller spacings mean you can sample higher frequencies
-        # When doing propagation, it doesn't make sense to propagate frequencies that are
-        # higher than the Nyquist frequency of the output plane
-        
-        if dx_input.real < dx_output.real:
-            fx = output_plane.fx_padded
-        else:
-            fx = input_plane.fx_padded
-
-        if dy_input.real < dy_output.real:
-            fy = output_plane.fy_padded
-        else:
-            fy = input_plane.fy_padded
-
-        self.dft_matrix_x = torch.exp(2j * torch.pi * torch.outer(fx, input_plane.x_padded)).unsqueeze(0)
-        self.dft_matrix_y = torch.exp(2j * torch.pi * torch.outer(fy, input_plane.y_padded)).unsqueeze(0)
-        self.dift_matrix_x = torch.exp(2j * torch.pi * torch.outer(output_plane.x_padded, fx)).unsqueeze(0) / M
-        self.dift_matrix_y = torch.exp(2j * torch.pi * torch.outer(output_plane.y_padded, fy)).unsqueeze(0) / N
-
     def init_asm_transfer_function(self, input_plane, output_plane, wavelength): 
         logger.debug("Initializing ASM transfer function")
 
-        # Get the fourier dimensions of the input plane
-        fxx, fyy = input_plane.fxx_padded, input_plane.fyy_padded
+        input_dx = input_plane.delta_x.real
+        input_dy = input_plane.delta_y.real
+        output_dx = output_plane.delta_x.real
+        output_dy = output_plane.delta_y.real
+
+        # Check which is the limiting plane
+        # Use the plane with the larger dx and dy
+        if input_dx > output_dx:
+            fxx = input_plane.fxx_padded
+        else:
+            fxx = output_plane.fxx_padded
+
+        if input_dy > output_dy:
+            fyy = input_plane.fyy_padded
+        else:
+            fyy = output_plane.fyy_padded
 
         #Mask out non-propagating waves
         mask = torch.sqrt(fxx**2 + fyy**2).real < (1/wavelength)
@@ -299,9 +281,7 @@ class PropagatorFactory():
         h_rsc *= (1/(2*torch.pi)) * (z/r)
 
         # Get the transfer function
-        #H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
-        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, dft_matrix_x=self.dft_matrix_x, dft_matrix_y=self.dft_matrix_y, backend=torch)
-        #H = torch.fft.fft2(h_rsc)
+        H = self.dft(h_rsc)
 
         # Normalize the transfer function
         mag = H.abs()
@@ -315,7 +295,7 @@ class PropagatorFactory():
         return H
 
 class Propagator(pl.LightningModule):
-    def __init__(self, input_plane, output_plane, transfer_function, prop_type, dft_matrices=None, dift_matrices=None):
+    def __init__(self, input_plane, output_plane, transfer_function, prop_type, dft=torch.fft.fftn, dift=torch.fft.ifftn):
         super().__init__()
         self.input_plane = input_plane
         self.output_plane = output_plane
@@ -327,13 +307,8 @@ class Propagator(pl.LightningModule):
         padx = torch.div(input_plane.Nx, 2, rounding_mode='trunc')
         pady = torch.div(input_plane.Ny, 2, rounding_mode='trunc')
         self.padding = (pady,pady,padx,padx)    
-
-        if dft_matrices is not None:
-            self.register_buffer('dft_matrix_x', dft_matrices[0])
-            self.register_buffer('dft_matrix_y', dft_matrices[1])
-        if dift_matrices is not None:
-            self.register_buffer('dift_matrix_x', dift_matrices[0])
-            self.register_buffer('dift_matrix_y', dift_matrices[1])
+        self.dft = dft
+        self.dift = dift
 
     def forward(self, input_wavefront):
         # Pad the wavefront
@@ -361,28 +336,13 @@ class Propagator(pl.LightningModule):
         ###
         # Propagates the wavefront using the angular spectrum method.
         ###
-        A = dft_2d(input_wavefront, 
-                   self.input_plane.x_padded, 
-                   self.input_plane.y_padded, 
-                   self.input_plane.fx_padded, 
-                   self.input_plane.fy_padded, 
-                   dft_matrix_x=self.dft_matrix_x,
-                   dft_matrix_y=self.dft_matrix_y,
-                   backend=torch)
+        A = self.dft(input_wavefront)
         A = torch.fft.fftshift(A)
+        from IPython import embed; embed()
         U = A * self.H
         U = torch.fft.ifftshift(U, dim=(-1,-2))
-        U = dift_2d(U, 
-                    self.input_plane.x_padded, 
-                    self.input_plane.y_padded, 
-                    self.input_plane.fx_padded, 
-                    self.input_plane.fy_padded, 
-                    self.output_plane.x_padded, 
-                    self.output_plane.y_padded, 
-                    dift_matrix_x=self.dift_matrix_x,
-                    dift_matrix_y=self.dift_matrix_y,
-                    backend=torch)
         U = self.cc_output(U)
+        U = self.dift(U)
         return U
 
     def rsc_propagate(self, input_wavefront):
@@ -391,27 +351,11 @@ class Propagator(pl.LightningModule):
         # Propagates the wavefront using the rayleigh-sommerfeld convolution.
         ###
         #A = torch.fft.fft2(input_wavefront)
-        A = dft_2d(input_wavefront, 
-                   self.input_plane.x_padded, 
-                   self.input_plane.y_padded, 
-                   self.input_plane.fx_padded, 
-                   self.input_plane.fy_padded, 
-                   dft_matrix_x=self.dft_matrix_x,
-                   dft_matrix_y=self.dft_matrix_y,
-                   backend=torch)
+        A = self.dft(input_wavefront)
         A = torch.fft.fftshift(A)
         U = A * self.H 
         U = torch.fft.ifftshift(U, dim=(-1,-2))
-        U = dift_2d(U, 
-                    self.input_plane.x_padded, 
-                    self.input_plane.y_padded, 
-                    self.input_plane.fx_padded, 
-                    self.input_plane.fy_padded, 
-                    self.output_plane.x_padded, 
-                    self.output_plane.y_padded, 
-                    dift_matrix_x=self.dift_matrix_x,
-                    dift_matrix_y=self.dift_matrix_y,
-                    backend=torch)
+        U = self.dift(U)
         U = self.cc_output(U)
         return U
 
