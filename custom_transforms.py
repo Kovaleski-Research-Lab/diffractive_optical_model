@@ -34,7 +34,7 @@ class WavefrontTransform(object):
             amplitude = torch.ones(c,w,h)
 
         wavefront = amplitude * torch.exp(1j*phases)
-        wavefront = wavefront.type(torch.complex128)
+        wavefront = wavefront.type(torch.complex64)
         return wavefront
 
 #--------------------------------

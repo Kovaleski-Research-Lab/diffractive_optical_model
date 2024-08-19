@@ -58,7 +58,7 @@ if __name__ == "__main__":
     x,y = plane0.x, plane0.y
     xx,yy = plane0.xx, plane0.yy
     wavefront = torch.ones_like(xx)
-    wavefront[(xx.real**2 + yy.real**2) > (1.e-3)**2] = 0
+    wavefront[(xx.real**2 + yy.real**2) > (1000)**2] = 0
     wavefront = wavefront.view(1,1,plane0.Nx,plane0.Ny)
 
     # Propagate the wavefront

@@ -142,8 +142,6 @@ def dift_2d(G, x, y, fx, fy, x_reconstruction, y_reconstruction, dift_matrix_x=N
         G = G.squeeze()
         G = G.reshape(1,G.shape[-2],G.shape[-1])
 
-
-
     # If the dift_matrix_x is not provided, create it
     if dift_matrix_x is None:
         M = x.shape[0]

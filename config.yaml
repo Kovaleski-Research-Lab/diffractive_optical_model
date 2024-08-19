@@ -95,21 +95,21 @@ planes:
   0: &idpl00
     name: 'plane0'
     center: [0,0,0]
-    size: [15.36e-3, 8.96e-3]
+    size: [15.36e+3, 8.96e+3]
     normal: [0,0,1]
     Nx: 1920
     Ny: 1080
   1: &idpl01
     name: 'plane1'
-    center: [0,0,10.e-2]
-    size: [15.36e-3, 8.96e-3]
+    center: [0,0,10.e+4]
+    size: [15.36e+3, 8.96e+3]
     normal: [0,0,1]
     Nx: 1920
     Ny: 1080
   2: &idpl02
     name: 'plane2'
-    center: [0,0,20.e-2]
-    size: [15.36e-3, 8.96e-3]
+    center: [0,0,20.e+4]
+    size: [15.36e+3, 8.96e+3]
     normal: [0,0,1]
     Nx: 1920
     Ny: 1080
@@ -129,12 +129,12 @@ modulators:
     phase_pattern : 'lens'
     amplitude_pattern : None
     kwargs:
-      focal_length: 5.e-2
-      wavelength: 1.55e-6
+      focal_length: 5.e+4
+      wavelength: 1.55
 
 propagator: &idprop
   prop_type: 
-  wavelength: 1.55e-6
+  wavelength: 1.55
 
 diffraction_blocks:
   0:

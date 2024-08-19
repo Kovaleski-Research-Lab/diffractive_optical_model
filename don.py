@@ -212,6 +212,10 @@ if __name__ == "__main__":
     import yaml
     
     params = yaml.load(open("config.yaml"), Loader=yaml.FullLoader)
+    paths = params['paths']
+    path_root = os.getcwd()
+    paths['path_root'] = path_root
+    params['paths'] = paths 
     dm = datamodule.select_data(params)
     #Initialize the data module
     dm.prepare_data()
