@@ -4,12 +4,134 @@ import torch
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from PIL import Image
 from loguru import logger
+import pytorch_lightning as pl
 #import cupy as cp
 
 BACKENDS = {
     "numpy": np,
     "torch": torch,
     }
+
+
+class DFT(pl.LightningModule):
+    def __init__(self, input_plane, output_plane):
+        super().__init__()
+        self.input_plane = input_plane
+        self.output_plane = output_plane
+        self.use_custom_dft = False
+        self.build_dft_matrices(input_plane, output_plane)
+
+    def build_dft_matrices(self, input_plane, output_plane):
+        dx_input = input_plane.delta_x
+        dy_input = input_plane.delta_y
+
+        dx_output = output_plane.delta_x
+        dy_output = output_plane.delta_y
+        if dx_input.real == dx_output.real and dy_input.real == dy_output.real:
+            logger.info("Using PyTorch DFT")
+            self.use_custom_dft = False
+            return
+        logger.info("Using custom DFT")
+
+        if dx_input.real < dx_output.real:
+            fx = output_plane.fx_padded
+        else:
+            fx = input_plane.fx_padded
+
+        if dy_input.real < dy_output.real:
+            fy = output_plane.fy_padded
+        else:
+            fy = input_plane.fy_padded
+
+        self.register_buffer("dft_matrix_x", torch.exp(-2j * torch.pi * torch.outer(fx, input_plane.x_padded)).unsqueeze(0))
+        self.register_buffer("dft_matrix_y", torch.exp(-2j * torch.pi * torch.outer(fy, input_plane.y_padded)).unsqueeze(0))
+
+    def forward(self, g):
+
+        if not self.use_custom_dft:
+            return torch.fft.fftn(g)
+        else:
+            # Make sure g is in B,M,N format
+            if len(g.shape) == 4:
+                b,c,w,h = g.shape
+                g = g.squeeze()
+                g = g.reshape(b,w,h)
+            elif len(g.shape) != 3:
+                g = g.squeeze()
+                g = g.reshape(1,g.shape[-2],g.shape[-1])
+
+            # Perform the DFT along x-axis
+            g_dft_x = self.dft_matrix_x[0] @ g
+
+            # Perform the DFT along y-axis
+            g_dft_xy = self.dft_matrix_y[0] @ g_dft_x.permute(0, 2, 1)
+            g_dft_xy = g_dft_xy.permute(0, 2, 1)
+            return g_dft_xy
+
+
+class DIFT(pl.LightningModule):
+    def __init__(self, input_plane, output_plane):
+
+        super().__init__()
+        self.input_plane = input_plane
+        self.output_plane = output_plane
+        self.use_custom_dift = False
+        self.build_dift_matrices(input_plane, output_plane)
+
+    def build_dift_matrices(self, input_plane, output_plane):
+
+        # I might need to double these here
+        M_output = output_plane.Nx
+        N_output = output_plane.Ny
+
+        M_input = input_plane.Nx
+        N_input = input_plane.Ny
+
+        dx_input = input_plane.delta_x
+        dy_input = input_plane.delta_y
+
+        dx_output = output_plane.delta_x
+        dy_output = output_plane.delta_y
+
+        if dx_input.real == dx_output.real and dy_input.real == dy_output.real and M_input == M_output and N_input == N_output:
+            logger.info("Using PyTorch DIFT")
+            self.use_custom_dift = False
+            return
+        logger.info("Using custom DIFT")
+
+        if dx_input.real < dx_output.real:
+            fx = output_plane.fx_padded
+        else:
+            fx = input_plane.fx_padded
+
+        if dy_input.real < dy_output.real:
+            fy = output_plane.fy_padded
+        else:
+            fy = input_plane.fy_padded
+
+        self.register_buffer("dift_matrix_x", torch.exp(2j * torch.pi * torch.outer(output_plane.x_padded, fx)).unsqueeze(0) / M_output)
+        self.register_buffer("dift_matrix_y", torch.exp(2j * torch.pi * torch.outer(output_plane.y_padded, fy)).unsqueeze(0) / N_output)
+
+    def forward(self, x):
+        if not self.use_custom_dift:
+            return torch.fft.ifftn(x)
+        else:
+            # Make sure G is in B,M,N format
+            if len(x.shape) == 4:
+                b,c,w,h = x.shape
+                x = x.squeeze()
+                x = x.reshape(b,w,h)
+            elif len(x.shape) != 3:
+                x = x.squeeze()
+                x = x.reshape(1,x.shape[-2],x.shape[-1])
+
+            # Perform the DIFT using dot product along y-axis (columns)
+            g_reconstructed_y = self.dift_matrix_y[0] @ x.permute(0, 2, 1)
+
+            # Perform the DIFT using dot product along x-axis (rows)
+            g_reconstructed = self.dift_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
+
+            return g_reconstructed.unsqueeze(1)
 
 
 def dft_1d(g, x, fx, dft_matrix = None, backend = BACKENDS["numpy"]):
