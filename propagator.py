@@ -300,7 +300,7 @@ class PropagatorFactory():
 
         # Get the transfer function
         #H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, backend=torch)
-        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, dft_matrix_x=self.dft_matrix_x, dft_matrix_y=self.dft_matrix_y, backend=torch)
+        H = dft_2d(h_rsc, input_plane.x_padded, input_plane.y_padded, input_plane.fx_padded, input_plane.fy_padded, dft_matrix_x=self.dft_matrix_x, dft_matrix_y=self.dft_matrix_y)
         #H = torch.fft.fft2(h_rsc)
 
         # Normalize the transfer function
@@ -367,8 +367,7 @@ class Propagator(pl.LightningModule):
                    self.input_plane.fx_padded, 
                    self.input_plane.fy_padded, 
                    dft_matrix_x=self.dft_matrix_x,
-                   dft_matrix_y=self.dft_matrix_y,
-                   backend=torch)
+                   dft_matrix_y=self.dft_matrix_y,)
         A = torch.fft.fftshift(A)
         U = A * self.H
         U = torch.fft.ifftshift(U, dim=(-1,-2))
@@ -380,8 +379,7 @@ class Propagator(pl.LightningModule):
                     self.output_plane.x_padded, 
                     self.output_plane.y_padded, 
                     dift_matrix_x=self.dift_matrix_x,
-                    dift_matrix_y=self.dift_matrix_y,
-                    backend=torch)
+                    dift_matrix_y=self.dift_matrix_y,)
         U = self.cc_output(U)
         return U
 
@@ -397,8 +395,7 @@ class Propagator(pl.LightningModule):
                    self.input_plane.fx_padded, 
                    self.input_plane.fy_padded, 
                    dft_matrix_x=self.dft_matrix_x,
-                   dft_matrix_y=self.dft_matrix_y,
-                   backend=torch)
+                   dft_matrix_y=self.dft_matrix_y,)
         A = torch.fft.fftshift(A)
         U = A * self.H 
         U = torch.fft.ifftshift(U, dim=(-1,-2))
@@ -410,8 +407,7 @@ class Propagator(pl.LightningModule):
                     self.output_plane.x_padded, 
                     self.output_plane.y_padded, 
                     dift_matrix_x=self.dift_matrix_x,
-                    dift_matrix_y=self.dift_matrix_y,
-                    backend=torch)
+                    dift_matrix_y=self.dift_matrix_y,)
         U = self.cc_output(U)
         return U
 
@@ -453,7 +449,7 @@ if __name__ == "__main__":
 
     input_plane_params = {
         'name': 'input_plane',
-        'size': torch.tensor([8.96e-3, 8.96e-3]),
+        'size': torch.tensor([8.96e+3, 8.96e+3]),
         'Nx': 1000,
         'Ny': 1000,
         'normal': torch.tensor([0,0,1]),
@@ -462,34 +458,38 @@ if __name__ == "__main__":
 
     output_plane_params0 = {
         'name': 'output_plane',
-        'size': torch.tensor([2.96e-3, 2.96e-3]),
+        'size': torch.tensor([2.96e+3, 2.96e+3]),
         'Nx': 2000,
         'Ny': 2000,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,11e-2])
+        'center': torch.tensor([0,0,11e+4])
     }
 
     output_plane_params1 = {
         'name': 'output_plane',
-        'size': torch.tensor([8.96e-3, 8.96e-3]),
+        'size': torch.tensor([8.96e+3, 8.96e+3]),
         'Nx': 500,
         'Ny': 500,
         'normal': torch.tensor([0,0,1]),
-        'center': torch.tensor([0,0,20e-2])
+        'center': torch.tensor([0,0,20e+2])
     }
 
     input_plane = plane.Plane(input_plane_params)
     output_plane0 = plane.Plane(output_plane_params0)
     output_plane1 = plane.Plane(output_plane_params0)
 
+    input_plane.print_info()
+    output_plane0.print_info()
+    output_plane1.print_info()
+
     propagator_params = {
         'prop_type': 'asm',
-        'wavelength': torch.tensor(1.55e-6),
+        'wavelength': torch.tensor(1.55),
     }
 
-    propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params)
+    propagator0 = PropagatorFactory()(input_plane, output_plane0, propagator_params).cuda()
     propagator_params['prop_type'] = 'rsc'
-    propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params)
+    propagator1 = PropagatorFactory()(input_plane, output_plane1, propagator_params).cuda()
 
     # Example wavefront to propagate
     # This is a plane wave through a 1mm aperture
@@ -497,13 +497,13 @@ if __name__ == "__main__":
     y = torch.linspace(-input_plane.Ly/2, input_plane.Ly/2, input_plane.Ny)
     xx, yy = torch.meshgrid(x, y, indexing='ij')
     wavefront = torch.ones_like(xx)
-    wavefront[(xx**2 + yy**2) > (0.6e-3)**2] = 0
+    wavefront[(xx**2 + yy**2) > (0.6e+3)**2] = 0
     wavefront = wavefront.view(1,1,input_plane.Nx,input_plane.Ny)
-    wavefront = wavefront.type(torch.complex128)
+    wavefront = wavefront.type(torch.complex64).cuda()
 
     # Propagate the wavefront
-    output_wavefront0 = propagator0(wavefront).squeeze()
-    output_wavefront1 = propagator1(wavefront).squeeze()
+    output_wavefront0 = propagator0(wavefront).squeeze().cpu()
+    output_wavefront1 = propagator1(wavefront).squeeze().cpu()
     #output_wavefront2 = propagator2(wavefront)
 
     # Plot the input and output wavefronts
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from matplotlib import ticker
 
-    scale = 1e3
+    scale = 1e-3
     ticks = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(x*scale))
     
     fig, axes = plt.subplots(1,3, figsize=(20,5))
