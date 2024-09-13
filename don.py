@@ -97,6 +97,7 @@ class DON(LightningModule):
     #--------------------------------
  
     def objective(self, output, target):
+        from IPython import embed; embed()
         if self.similarity_metric:
             return 1 / (1 + self.objective_function(preds = output, target = target))
         else:
