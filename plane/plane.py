@@ -3,7 +3,7 @@ from loguru import logger
 import numpy as np
 
 class Plane():
-    def __init__(self, params:dict)->None:
+    def __init__(self, params:dict, bits:int=64)->None:
         self.name = params['name']
         logger.debug("Initializing plane {}".format(self.name))
 
@@ -13,7 +13,8 @@ class Plane():
         self.Ny = params['Ny']
         
         # Fix types
-        self.fix_types(bits=32)
+        self.bits = bits
+        self.fix_types(bits=self.bits)
 
         self.center = torch.tensor([self.center_x, self.center_y, self.center_z])
         self.size = torch.tensor([self.Lx, self.Ly])
@@ -28,7 +29,7 @@ class Plane():
 
     def fix_types(self, bits=64):
         logger.debug("Fixing types for plane {}".format(self.name))
-        if bits == 64:
+        if bits == 128:
             self.center_x = torch.tensor(self.center_x).to(torch.float64)
             self.center_y = torch.tensor(self.center_y).to(torch.float64)
             self.center_z = torch.tensor(self.center_z).to(torch.float64)
@@ -36,7 +37,9 @@ class Plane():
             self.Ly = torch.tensor(self.Ly).to(torch.float64)
             self.Nx = torch.tensor(self.Nx).to(torch.int64)
             self.Ny = torch.tensor(self.Ny).to(torch.int64)
-        elif bits == 32:
+            self.complex_type_torch = torch.complex128
+            self.complex_type_numpy = np.complex128
+        elif bits == 64:
             self.center_x = torch.tensor(self.center_x).to(torch.float32)
             self.center_y = torch.tensor(self.center_y).to(torch.float32)
             self.center_z = torch.tensor(self.center_z).to(torch.float32)
@@ -44,6 +47,8 @@ class Plane():
             self.Ly = torch.tensor(self.Ly).to(torch.float32)
             self.Nx = torch.tensor(self.Nx).to(torch.int32)
             self.Ny = torch.tensor(self.Ny).to(torch.int32)
+            self.complex_type_torch = torch.complex64
+            self.complex_type_numpy = np.complex64
         else:
             logger.error("Invalid number of bits.")
             raise ValueError("Invalid number of bits.")
@@ -52,8 +57,8 @@ class Plane():
         logger.debug("Building plane {}".format(self.name))
         x = torch.div(self.Lx, 2)
         y = torch.div(self.Ly, 2)
-        self.x = torch.linspace(-x, x, self.Nx, dtype=torch.complex64)
-        self.y = torch.linspace(-y, y, self.Ny, dtype=torch.complex64)
+        self.x = torch.linspace(-x, x, self.Nx, dtype=self.complex_type_torch)
+        self.y = torch.linspace(-y, y, self.Ny, dtype=self.complex_type_torch)
         
         self.delta_x = torch.diff(self.x)[0]
         self.delta_y = torch.diff(self.y)[0]
@@ -61,22 +66,22 @@ class Plane():
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
         # Added these to help with DNI propagation.
-        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*int(self.Nx), dtype=torch.complex64)
-        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*int(self.Ny), dtype=torch.complex64)
+        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*int(self.Nx), dtype=self.complex_type_torch)
+        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*int(self.Ny), dtype=self.complex_type_torch)
         self.xx_padded,self.yy_padded = torch.meshgrid(self.x_padded, self.y_padded, indexing='ij')
 
         # FFT frequencies
         # Added these to assist with CZT propagation.
         # Need to convert the numpy initializations to a tensor to keep 128 bit precision.
-        self.fx = torch.tensor(np.fft.fftfreq(int(self.Nx), d=self.delta_x.numpy()), dtype=torch.complex64)
-        self.fy = torch.tensor(np.fft.fftfreq(int(self.Ny), d=self.delta_y.numpy()), dtype=torch.complex64)
+        self.fx = torch.tensor(np.fft.fftfreq(int(self.Nx), d=self.delta_x.numpy()), dtype=self.complex_type_torch)
+        self.fy = torch.tensor(np.fft.fftfreq(int(self.Ny), d=self.delta_y.numpy()), dtype=self.complex_type_torch)
         self.fxx,self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
 
         self.delta_fx = torch.diff(self.fx)[0]
         self.delta_fy = torch.diff(self.fy)[0]
 
-        self.fx_padded = torch.tensor(np.fft.fftfreq(2*int(self.Nx), d=self.delta_x.numpy()), dtype=torch.complex64)
-        self.fy_padded = torch.tensor(np.fft.fftfreq(2*int(self.Ny), d=self.delta_y.numpy()), dtype=torch.complex64)
+        self.fx_padded = torch.tensor(np.fft.fftfreq(2*int(self.Nx), d=self.delta_x.numpy()), dtype=self.complex_type_torch)
+        self.fy_padded = torch.tensor(np.fft.fftfreq(2*int(self.Ny), d=self.delta_y.numpy()), dtype=self.complex_type_torch)
         self.fxx_padded,self.fyy_padded = torch.meshgrid(self.fx_padded, self.fy_padded, indexing='ij')
 
         self.delta_fx_padded = torch.diff(self.fx_padded)[0]
@@ -194,5 +199,15 @@ class Plane():
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
+    import yaml
+    config = yaml.safe_load(open("../config.yaml"))
+    plane_params = config['planes'][0]
+    print(plane_params)
+
+
+    plane = Plane(plane_params, bits=64)
+    plane2 = Plane(plane_params, bits=128)
+
+    from IPython import embed; embed()
 
 

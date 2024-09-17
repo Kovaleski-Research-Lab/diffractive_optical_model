@@ -8,7 +8,7 @@ sys.path.append('../../')
 from initializations import phase_initializations, amplitude_initializations
 from factory import ModulatorFactory
 from modulator import Modulator
-from plane import Plane
+from plane.plane import Plane
 
 class TestModulator(unittest.TestCase):
     def setup(self):
@@ -176,6 +176,99 @@ class TestModulator(unittest.TestCase):
         assert modulator.amplitude.requires_grad == True
         assert modulator.phase.requires_grad == True
 
+
+    def test_init_dtype_64(self):
+        # Load the config
+        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config, bits=64)
+        # Create some params for the factory
+        params = {'gradients': 'complex', 'phase_init': 'random', 'amplitude_init': 'random'}
+        # Call the factory
+        modulator = ModulatorFactory()(params, plane)
+        assert modulator.amplitude.dtype == torch.float32
+        assert modulator.phase.dtype == torch.float32
+
+    def test_init_dtype_128(self):
+        # Load the config
+        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config, bits=128)
+        # Create some params for the factory
+        params = {'gradients': 'complex', 'phase_init': 'random', 'amplitude_init': 'random'}
+        # Call the factory
+        modulator = ModulatorFactory()(params, plane)
+        assert modulator.amplitude.dtype == torch.float64
+        assert modulator.phase.dtype == torch.float64
+
+    def test_factory_modulator_forward_64bit(self):
+        # Load the config
+        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config, bits=64)
+        # Create some params for the factory
+        params = {'gradients': 'complex', 'phase_init': 'random', 'amplitude_init': 'random'}
+        # Call the factory
+        modulator = ModulatorFactory()(params, plane)
+        # Create some input wavefront
+        amplitude = torch.rand(plane.Nx, plane.Ny, dtype=torch.float32)
+        phase = torch.rand(plane.Nx, plane.Ny, dtype=torch.float32)
+        input_wavefront = amplitude * torch.exp(1j * phase)
+        shape = input_wavefront.shape
+        input_wavefront = input_wavefront.view(1,1,shape[0],shape[1]).to(torch.complex64)
+        output_wavefront = modulator(input_wavefront)
+
+        test_modulator = modulator.amplitude * torch.exp(1j * modulator.phase)
+        assert torch.allclose(output_wavefront, test_modulator * input_wavefront)
+        assert output_wavefront.shape == input_wavefront.shape
+        assert output_wavefront.dtype == torch.complex64
+
+    def test_factory_modulator_forward_128bit(self):
+        # Load the config
+        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config, bits=128)
+        # Create some params for the factory
+        params = {'gradients': 'complex', 'phase_init': 'random', 'amplitude_init': 'random'}
+        # Call the factory
+        modulator = ModulatorFactory()(params, plane)
+        # Create some input wavefront
+        amplitude = torch.rand(plane.Nx, plane.Ny, dtype=torch.float64)
+        phase = torch.rand(plane.Nx, plane.Ny, dtype=torch.float64)
+        input_wavefront = amplitude * torch.exp(1j * phase)
+        shape = input_wavefront.shape
+        input_wavefront = input_wavefront.view(1,1,shape[0],shape[1]).to(torch.complex128)
+        output_wavefront = modulator(input_wavefront)
+
+        test_modulator = modulator.amplitude * torch.exp(1j * modulator.phase)
+        assert torch.allclose(output_wavefront, test_modulator * input_wavefront)
+        assert output_wavefront.shape == input_wavefront.shape
+        assert output_wavefront.dtype == torch.complex128
+
+    def test_factory_uniform_init_withValue(self):
+        # Load the config
+        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config)
+        # Create some params for the factory
+        params = {'gradients': 'complex', 'phase_init': 'uniform', 'amplitude_init': 'uniform'}
+        value = 3.0
+        kwargs = {'phase_value': value, 'amplitude_value': value}
+        # Call the factory
+        modulator = ModulatorFactory()(params, plane, kwargs)
+        assert torch.allclose(modulator.amplitude, torch.ones(plane.Nx, plane.Ny)*value)
+        assert torch.allclose(modulator.phase, torch.ones(plane.Nx, plane.Ny)*value)
+
 def suite_basic():
     suite = unittest.TestSuite()
     suite.addTest(TestModulator('test_uniform_phase_initialization'))
@@ -195,6 +288,11 @@ def suite_basic():
     suite.addTest(TestModulator('test_factory_phase_only'))
     suite.addTest(TestModulator('test_factory_amplitude_only'))
     suite.addTest(TestModulator('test_factory_complex'))
+    suite.addTest(TestModulator('test_init_dtype_64'))
+    suite.addTest(TestModulator('test_init_dtype_128'))
+    suite.addTest(TestModulator('test_factory_modulator_forward_64bit'))
+    suite.addTest(TestModulator('test_factory_modulator_forward_128bit'))
+    suite.addTest(TestModulator('test_factory_uniform_init_withValue'))
     return suite
 
 if __name__ == "__main__":

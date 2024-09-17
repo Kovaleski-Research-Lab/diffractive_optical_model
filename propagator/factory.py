@@ -25,7 +25,7 @@ class PropagatorFactory:
             raise ValueError(f"Invalid FFT type: {params['fft_type']}")
 
         # Propagation Strategy selection
-        prop_type = params.get('prop_type')
+        prop_type = params['prop_type']
         if prop_type is None:
             if self.check_asm_distance(input_plane, output_plane, params):
                 propagation_strategy = ASMStrategy(input_plane, output_plane, params['wavelength'])

@@ -122,9 +122,11 @@ modulators:
     phase_pattern : None
     amplitude_pattern : None
     kwargs:
+      phase_value: 0.0
+      amplitude_value: 1.0
   1: &idm01
     amplitude_init : 'uniform'
-    phase_init : 'custom'
+    phase_init : 'lens_phase'
     gradients : 'phase_only'
     phase_pattern : 'lens'
     amplitude_pattern : None

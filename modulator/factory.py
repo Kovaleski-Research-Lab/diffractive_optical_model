@@ -5,15 +5,15 @@ from initializations.phase_initializations import initialize_phase
 from initializations.amplitude_initializations import initialize_amplitude
 
 class ModulatorFactory:
-    def __call__(self, params, plane):
+    def __call__(self, params, plane, kwargs:dict={None:None}):
         self.gradients = params['gradients']
-        amplitude, phase = self.initialize_amplitude_phase(params, plane)
+        amplitude, phase = self.initialize_amplitude_phase(params, plane, kwargs)
         amplitude, phase = self.initialize_gradients(amplitude, phase)
         return Modulator(amplitude, phase)
 
-    def initialize_amplitude_phase(self, params, plane):
-        amplitude = initialize_amplitude(params, plane)
-        phase = initialize_phase(params, plane)
+    def initialize_amplitude_phase(self, params, plane, kwargs:dict={None:None}):
+        amplitude = initialize_amplitude(params, plane, kwargs)
+        phase = initialize_phase(params, plane, kwargs)
         return amplitude, phase
 
     def initialize_gradients(self, amplitude, phase):
