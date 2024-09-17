@@ -9,3 +9,11 @@ class FFTStrategy(ABC):
     def ifft(self, data):
         pass
 
+    @abstractmethod
+    def fft2(self, data):
+        pass
+
+    @abstractmethod
+    def ifft2(self, data):
+        pass
+

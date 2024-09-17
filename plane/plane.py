@@ -39,6 +39,8 @@ class Plane():
             self.Ny = torch.tensor(self.Ny).to(torch.int64)
             self.complex_type_torch = torch.complex128
             self.complex_type_numpy = np.complex128
+            self.real_type_torch = torch.float64
+            self.real_type_numpy = np.float64
         elif bits == 64:
             self.center_x = torch.tensor(self.center_x).to(torch.float32)
             self.center_y = torch.tensor(self.center_y).to(torch.float32)
@@ -49,6 +51,8 @@ class Plane():
             self.Ny = torch.tensor(self.Ny).to(torch.int32)
             self.complex_type_torch = torch.complex64
             self.complex_type_numpy = np.complex64
+            self.real_type_torch = torch.float32
+            self.real_type_numpy = np.float32
         else:
             logger.error("Invalid number of bits.")
             raise ValueError("Invalid number of bits.")
@@ -57,8 +61,8 @@ class Plane():
         logger.debug("Building plane {}".format(self.name))
         x = torch.div(self.Lx, 2)
         y = torch.div(self.Ly, 2)
-        self.x = torch.linspace(-x, x, self.Nx, dtype=self.complex_type_torch)
-        self.y = torch.linspace(-y, y, self.Ny, dtype=self.complex_type_torch)
+        self.x = torch.linspace(-x, x, self.Nx, dtype=self.real_type_torch)
+        self.y = torch.linspace(-y, y, self.Ny, dtype=self.real_type_torch)
         
         self.delta_x = torch.diff(self.x)[0]
         self.delta_y = torch.diff(self.y)[0]
@@ -66,22 +70,22 @@ class Plane():
         self.xx,self.yy = torch.meshgrid(self.x, self.y, indexing='ij')
 
         # Added these to help with DNI propagation.
-        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*int(self.Nx), dtype=self.complex_type_torch)
-        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*int(self.Ny), dtype=self.complex_type_torch)
+        self.x_padded = torch.linspace(-self.Lx, self.Lx, 2*int(self.Nx), dtype=self.real_type_torch)
+        self.y_padded = torch.linspace(-self.Ly, self.Ly, 2*int(self.Ny), dtype=self.real_type_torch)
         self.xx_padded,self.yy_padded = torch.meshgrid(self.x_padded, self.y_padded, indexing='ij')
 
         # FFT frequencies
         # Added these to assist with CZT propagation.
         # Need to convert the numpy initializations to a tensor to keep 128 bit precision.
-        self.fx = torch.tensor(np.fft.fftfreq(int(self.Nx), d=self.delta_x.numpy()), dtype=self.complex_type_torch)
-        self.fy = torch.tensor(np.fft.fftfreq(int(self.Ny), d=self.delta_y.numpy()), dtype=self.complex_type_torch)
+        self.fx = torch.tensor(np.fft.fftfreq(int(self.Nx), d=self.delta_x.numpy()), dtype=self.real_type_torch)
+        self.fy = torch.tensor(np.fft.fftfreq(int(self.Ny), d=self.delta_y.numpy()), dtype=self.real_type_torch)
         self.fxx,self.fyy = torch.meshgrid(self.fx, self.fy, indexing='ij')
 
         self.delta_fx = torch.diff(self.fx)[0]
         self.delta_fy = torch.diff(self.fy)[0]
 
-        self.fx_padded = torch.tensor(np.fft.fftfreq(2*int(self.Nx), d=self.delta_x.numpy()), dtype=self.complex_type_torch)
-        self.fy_padded = torch.tensor(np.fft.fftfreq(2*int(self.Ny), d=self.delta_y.numpy()), dtype=self.complex_type_torch)
+        self.fx_padded = torch.tensor(np.fft.fftfreq(2*int(self.Nx), d=self.delta_x.numpy()), dtype=self.real_type_torch)
+        self.fy_padded = torch.tensor(np.fft.fftfreq(2*int(self.Ny), d=self.delta_y.numpy()), dtype=self.real_type_torch)
         self.fxx_padded,self.fyy_padded = torch.meshgrid(self.fx_padded, self.fy_padded, indexing='ij')
 
         self.delta_fx_padded = torch.diff(self.fx_padded)[0]
