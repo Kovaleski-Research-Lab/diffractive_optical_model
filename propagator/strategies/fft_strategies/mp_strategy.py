@@ -2,9 +2,11 @@ import torch
 from strategy import FFTStrategy
 
 class MPFFTStrategy(FFTStrategy):
-    def __init__(self, input_plane, output_plane):
+    def __init__(self, input_plane, output_plane, kwargs:dict={None:None}):
         self.input_plane = input_plane
         self.output_plane = output_plane
+
+        self.padded = kwargs.get('padded', False)
         self.pick_fx_fy()
         self.create_dft_matrices()
         self.create_idft_matrices()
@@ -17,27 +19,54 @@ class MPFFTStrategy(FFTStrategy):
         dy_output = self.output_plane.delta_y
 
         # Which sample spacing is limiting in terms of the possible frequencies
-        if dx_input.real < dx_output.real:
-            self.fx = self.output_plane.fx
+        if dx_input.real <= dx_output.real:
+            if self.padded:
+                self.fx = self.output_plane.fx_padded
+            else:
+                self.fx = self.output_plane.fx
         else:
-            self.fx = self.input_plane.fx
+            if self.padded:
+                self.fx = self.input_plane.fx_padded
+            else:
+                self.fx = self.input_plane.fx
 
-        if dy_input.real < dy_output.real:
-            self.fy = self.output_plane.fy
+        if dy_input.real <= dy_output.real:
+            if self.padded:
+                self.fy = self.output_plane.fy_padded
+            else:
+                self.fy = self.output_plane.fy
         else:
-            self.fy = self.input_plane.fy
+            if self.padded:
+                self.fy = self.input_plane.fy_padded
+            else:
+                self.fy = self.input_plane.fy
 
     def create_dft_matrices(self):
-        self.dft_matrix_x = torch.exp(-2j * torch.pi * torch.outer(self.fx, self.input_plane.x)).unsqueeze(0)
-        self.dft_matrix_y = torch.exp(-2j * torch.pi * torch.outer(self.fy, self.input_plane.y)).unsqueeze(0)
+        if self.padded:
+            self.x = self.input_plane.x_padded
+            self.y = self.input_plane.y_padded
+        else:
+            self.x = self.input_plane.x
+            self.y = self.input_plane.y
+
+        self.dft_matrix_x = torch.exp(-2j * torch.pi * torch.outer(self.fx, self.x)).unsqueeze(0)
+        self.dft_matrix_y = torch.exp(-2j * torch.pi * torch.outer(self.fy, self.y)).unsqueeze(0)
 
     def create_idft_matrices(self):
-        # I might need to double these here
+        # I might need to double these here for padded inputs
+        # However, for padded inputs the values will be zero and therefore wont
+        # contribute to the sum. Could use some analysis here.
+        #if self.padded:
+        #    M_output = self.output_plane.Nx*2
+        #    N_output = self.output_plane.Ny*2
+        #else:
+        #    M_output = self.output_plane.Nx
+        #    N_output = self.output_plane.Ny
         M_output = self.output_plane.Nx
         N_output = self.output_plane.Ny
 
-        self.idft_matrix_x = torch.exp(2j * torch.pi * torch.outer(self.output_plane.x, self.fx)).unsqueeze(0) / M_output
-        self.idft_matrix_y = torch.exp(2j * torch.pi * torch.outer(self.output_plane.y, self.fy)).unsqueeze(0) / N_output
+        self.idft_matrix_x = torch.exp(2j * torch.pi * torch.outer(self.x, self.fx)).unsqueeze(0) / M_output
+        self.idft_matrix_y = torch.exp(2j * torch.pi * torch.outer(self.y, self.fy)).unsqueeze(0) / N_output
 
     def fft(self, g):
         g_dft = self.dft_matrix_x[0] @ g.transpose(0, 1)

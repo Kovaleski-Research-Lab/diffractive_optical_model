@@ -8,9 +8,10 @@ class Plane():
         logger.debug("Initializing plane {}".format(self.name))
 
         self.center_x, self.center_y, self.center_z = torch.tensor(params['center'])
-        self.Lx, self.Ly = params['size']
-        self.Nx = params['Nx']
-        self.Ny = params['Ny']
+        self.Lx, self.Ly = torch.tensor(params['size'])
+        self.Nx = torch.tensor(params['Nx'])
+        self.Ny = torch.tensor(params['Ny'])
+
         
         # Fix types
         self.bits = bits
@@ -30,25 +31,25 @@ class Plane():
     def fix_types(self, bits=64):
         logger.debug("Fixing types for plane {}".format(self.name))
         if bits == 128:
-            self.center_x = torch.tensor(self.center_x).to(torch.float64)
-            self.center_y = torch.tensor(self.center_y).to(torch.float64)
-            self.center_z = torch.tensor(self.center_z).to(torch.float64)
-            self.Lx = torch.tensor(self.Lx).to(torch.float64)
-            self.Ly = torch.tensor(self.Ly).to(torch.float64)
-            self.Nx = torch.tensor(self.Nx).to(torch.int64)
-            self.Ny = torch.tensor(self.Ny).to(torch.int64)
+            self.center_x = self.center_x.to(torch.float64)
+            self.center_y = self.center_y.to(torch.float64)
+            self.center_z = self.center_z.to(torch.float64)
+            self.Lx = self.Lx.to(torch.float64)
+            self.Ly = self.Ly.to(torch.float64)
+            self.Nx = self.Nx.to(torch.int64)
+            self.Ny = self.Ny.to(torch.int64)
             self.complex_type_torch = torch.complex128
             self.complex_type_numpy = np.complex128
             self.real_type_torch = torch.float64
             self.real_type_numpy = np.float64
         elif bits == 64:
-            self.center_x = torch.tensor(self.center_x).to(torch.float32)
-            self.center_y = torch.tensor(self.center_y).to(torch.float32)
-            self.center_z = torch.tensor(self.center_z).to(torch.float32)
-            self.Lx = torch.tensor(self.Lx).to(torch.float32)
-            self.Ly = torch.tensor(self.Ly).to(torch.float32)
-            self.Nx = torch.tensor(self.Nx).to(torch.int32)
-            self.Ny = torch.tensor(self.Ny).to(torch.int32)
+            self.center_x = self.center_x.to(torch.float32)
+            self.center_y = self.center_y.to(torch.float32)
+            self.center_z = self.center_z.to(torch.float32)
+            self.Lx = self.Lx.to(torch.float32)
+            self.Ly = self.Ly.to(torch.float32)
+            self.Nx = self.Nx.to(torch.int32)
+            self.Ny = self.Ny.to(torch.int32)
             self.complex_type_torch = torch.complex64
             self.complex_type_numpy = np.complex64
             self.real_type_torch = torch.float32
