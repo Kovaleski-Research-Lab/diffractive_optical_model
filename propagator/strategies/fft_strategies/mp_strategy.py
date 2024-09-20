@@ -43,30 +43,29 @@ class MPFFTStrategy(FFTStrategy):
 
     def create_dft_matrices(self):
         if self.padded:
-            self.x = self.input_plane.x_padded
-            self.y = self.input_plane.y_padded
+            self.x_input = self.input_plane.x_padded
+            self.y_input = self.input_plane.y_padded
         else:
-            self.x = self.input_plane.x
-            self.y = self.input_plane.y
+            self.x_input = self.input_plane.x
+            self.y_input = self.input_plane.y
 
-        self.dft_matrix_x = torch.exp(-2j * torch.pi * torch.outer(self.fx, self.x)).unsqueeze(0)
-        self.dft_matrix_y = torch.exp(-2j * torch.pi * torch.outer(self.fy, self.y)).unsqueeze(0)
+        self.dft_matrix_x = torch.exp(-2j * torch.pi * torch.outer(self.fx, self.x_input)).unsqueeze(0)
+        self.dft_matrix_y = torch.exp(-2j * torch.pi * torch.outer(self.fy, self.y_input)).unsqueeze(0)
 
     def create_idft_matrices(self):
-        # I might need to double these here for padded inputs
-        # However, for padded inputs the values will be zero and therefore wont
-        # contribute to the sum. Could use some analysis here.
-        #if self.padded:
-        #    M_output = self.output_plane.Nx*2
-        #    N_output = self.output_plane.Ny*2
-        #else:
-        #    M_output = self.output_plane.Nx
-        #    N_output = self.output_plane.Ny
-        M_output = self.output_plane.Nx
-        N_output = self.output_plane.Ny
+        if self.padded:
+            self.M_output = self.output_plane.Nx*2
+            self.N_output = self.output_plane.Ny*2
+            self.x_output = self.output_plane.x_padded
+            self.y_output = self.output_plane.y_padded
+        else:
+            self.M_output = self.output_plane.Nx
+            self.N_output = self.output_plane.Ny
+            self.x_output = self.output_plane.x
+            self.y_output = self.output_plane.y
 
-        self.idft_matrix_x = torch.exp(2j * torch.pi * torch.outer(self.x, self.fx)).unsqueeze(0) / M_output
-        self.idft_matrix_y = torch.exp(2j * torch.pi * torch.outer(self.y, self.fy)).unsqueeze(0) / N_output
+        self.idft_matrix_x = torch.exp(2j * torch.pi * torch.outer(self.x_output, self.fx)).unsqueeze(0)/self.M_output
+        self.idft_matrix_y = torch.exp(2j * torch.pi * torch.outer(self.y_output, self.fy)).unsqueeze(0)/self.N_output
 
     def fft(self, g):
         g_dft = self.dft_matrix_x[0] @ g.transpose(0, 1)
@@ -78,19 +77,20 @@ class MPFFTStrategy(FFTStrategy):
 
     def fft2(self, g):
        # Perform the DFT along x-axis
-       g_dft_x = self.dft_matrix_x @ g
-
+       g_dft_xy = self.dft_matrix_x @ g @ self.dft_matrix_y.permute(0, 2, 1)
        # Perform the DFT along y-axis
-       g_dft_xy = self.dft_matrix_y @ g_dft_x.permute(0, 2, 1)
-       g_dft_xy = g_dft_xy.permute(0, 2, 1)
+       #g_dft_xy = self.dft_matrix_y @ g_dft_x.permute(0, 2, 1)
+       #g_dft_xy = g_dft_xy.permute(0, 2, 1)
+       #g_dft_xy = g_dft_x @ self.dft_matrix_y.permute(0, 2, 1)
        return g_dft_xy
 
     def ifft2(self, G):
+        g_reconstructed = self.idft_matrix_x @ G @ self.idft_matrix_y.permute(0, 2, 1)
        # Perform the DIFT using dot product along y-axis (columns)
-       g_reconstructed_y = self.idft_matrix_y[0] @ G.permute(0, 2, 1)
+       #g_reconstructed_y = self.idft_matrix_y[0] @ G.permute(0, 2, 1)
 
-       # Perform the DIFT using dot product along x-axis (rows)
-       g_reconstructed = self.idft_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
+       ## Perform the DIFT using dot product along x-axis (rows)
+       #g_reconstructed = self.idft_matrix_x[0] @ g_reconstructed_y.permute(0, 2, 1)
 
-       return g_reconstructed.unsqueeze(1)
+        return g_reconstructed.unsqueeze(1)
 

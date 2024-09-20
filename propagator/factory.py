@@ -7,7 +7,6 @@ from .strategies.fft_strategies.pytorch_strategy import PyTorchFFTStrategy
 from .strategies.fft_strategies.mtp_strategy import MTPFFTStrategy
 from .strategies.propagation_strategies.asm_strategy import ASMStrategy
 from .strategies.propagation_strategies.rsc_strategy import RSCStrategy
-from .strategies.propagation_strategies.dni_strategy import DNIStrategy
 
 class PropagatorFactory:
     def __call__(self, input_plane, output_plane, params):
@@ -36,8 +35,6 @@ class PropagatorFactory:
                 propagation_strategy = ASMStrategy(input_plane, output_plane, params['wavelength'])
             elif prop_type == 'rsc':
                 propagation_strategy = RSCStrategy(input_plane, output_plane, params['wavelength'])
-            elif prop_type == 'dni':
-                propagation_strategy = DNIStrategy(input_plane, output_plane, params['wavelength'])
             else:
                 raise ValueError(f"Invalid propagation type: {prop_type}")
 

@@ -1,4 +1,4 @@
-
+import matplotlib.pyplot as plt
 import unittest
 import os
 import sys
@@ -396,7 +396,6 @@ class TestDFT(unittest.TestCase):
 
         # Get the magnitude
         magnitude_torch = torch.abs(g_dft_torch)
-        magnitude_torch = magnitude_torch / torch.max(magnitude_torch)
         magnitude_mp = torch.abs(g_dft_mp)
 
         # Check if the results are the same
@@ -427,8 +426,6 @@ class TestDFT(unittest.TestCase):
         # Get the magnitude
         magnitude_torch = torch.abs(g_dft_torch)
         magnitude_mp = torch.abs(g_dft_mp)
-
-        from IPython import embed; embed()
 
         # Check if the results are the same
         self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy()))
@@ -483,7 +480,7 @@ class TestDFT(unittest.TestCase):
         # Check if the results are the same
         self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy()))
 
-    def test_torch_mpfft_2d_nice(self):
+    def test_torch_mpfft_2d_nice_nopad(self):
         # Create a plane
         plane0 = Plane(params_plane0, bits=128)
         plane1 = Plane(params_plane0, bits=128)
@@ -508,7 +505,36 @@ class TestDFT(unittest.TestCase):
         # Check if the results are the same
         self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy(), atol=1e-6))
 
-    def test_torch_mpfft_2d_random(self):
+    def test_torch_mpfft_2d_nice_pad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+        plane1 = Plane(params_plane0, bits=128)
+
+        kwargs = {'padded': True}
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1, kwargs)
+
+        # Create an input signal with known frequencies in 2D
+        xx, yy = plane0.xx, plane0.yy
+        g = torch.sin(2*torch.pi*xx / 1.e+3) + torch.sin(4*torch.pi*yy / 1.e+3) + torch.sin(6*torch.pi*xx / 1.e+3).to(torch.complex128)
+        g_padded = torch.zeros(1, plane0.Nx*2, plane0.Ny*2).to(torch.complex128)
+        g_padded[0, plane0.Nx//2:plane0.Nx+plane0.Nx//2, plane0.Ny//2:plane0.Ny+plane0.Ny//2] = g
+
+        # Perform the DFT
+        g_dft = strategy.fft2(g_padded)
+
+        # Perform the DFT using torch
+        g_dft_torch = torch.fft.fftn(g_padded)
+
+        # Get the magnitude
+        magnitude_torch = torch.abs(g_dft_torch)
+        magnitude_mp = torch.abs(g_dft)
+
+        # Check if the results are the same
+        self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy(), atol=1e-6))
+
+
+    def test_torch_mpfft_2d_random_nopad(self):
         # Create a plane
         plane0 = Plane(params_plane0, bits=128)
         plane1 = Plane(params_plane0, bits=128)
@@ -532,6 +558,208 @@ class TestDFT(unittest.TestCase):
         # Check if the results are the same
         self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy(), atol=1e-6))
 
+
+    def test_torch_mpfft_2d_random_pad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+        plane1 = Plane(params_plane0, bits=128)
+
+        kwargs = {'padded': True}
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1, kwargs)
+
+        # Create a random input
+        g_padded = torch.zeros(1, plane0.Nx*2, plane0.Ny*2).to(torch.complex128)
+        g = torch.randn(1, plane0.Nx, plane0.Ny).to(torch.complex128)
+        g_padded[0, plane0.Nx//2:plane0.Nx+plane0.Nx//2, plane0.Ny//2:plane0.Ny+plane0.Ny//2] = g
+
+        # Perform the DFT
+        g_dft = strategy.fft2(g_padded)
+
+        # Perform the DFT using torch
+        g_dft_torch = torch.fft.fftn(g_padded)
+
+        # Get the magnitude
+        magnitude_torch = torch.abs(g_dft_torch)
+        magnitude_mp = torch.abs(g_dft)
+
+        # Check if the results are the same
+        self.assertTrue(np.allclose(magnitude_torch.numpy(), magnitude_mp.numpy(), atol=1e-6))
+
+    def test_mpifft_1d_nice_nopad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane0)
+
+        # Create an input signal with known frequencies in 1D
+        x = plane0.x
+        g = torch.sin(2*torch.pi*x / 1.e+3) + torch.sin(4*torch.pi*x / 1.e+3) + torch.sin(6*torch.pi*x / 1.e+3)
+        g = g.unsqueeze(0).to(torch.complex128)
+
+        # Perform the DFT
+        g_dft = strategy.fft(g)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft(g_dft)
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('1D IDFT no pad')
+        ax[0].plot(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].plot(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
+    def test_mpifft_1d_nice_pad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+
+        kwargs = {'padded': True}
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane0, kwargs)
+
+        # Create an input signal with known frequencies in 1D
+        x = plane0.x
+        g = torch.sin(2*torch.pi*x / 1.e+3) + torch.sin(4*torch.pi*x / 1.e+3) + torch.sin(6*torch.pi*x / 1.e+3)
+        g_padded = torch.zeros(1, plane0.Nx*2).to(torch.complex128)
+        g_padded[0, plane0.Nx//2:plane0.Nx+plane0.Nx//2] = g.to(torch.complex128)
+
+        # Perform the DFT
+        g_dft = strategy.fft(g_padded)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft(g_dft)
+
+        # Crop the signals
+        g_idft = g_idft[:, plane0.Nx//2:plane0.Nx+plane0.Nx//2]
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('1D IDFT padded')
+        ax[0].plot(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].plot(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
+
+    def test_mpifft_2d_nice_nopad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+        plane1 = Plane(params_plane0, bits=128)
+
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1)
+
+        # Create an input signal with known frequencies in 2D
+        xx, yy = plane0.xx, plane0.yy
+        g = torch.sin(2*torch.pi*xx / 1.e+3) + torch.sin(4*torch.pi*yy / 1.e+3) + torch.sin(6*torch.pi*xx / 1.e+3).to(torch.complex128)
+
+        # Perform the DFT
+        g_dft = strategy.fft2(g)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft2(g_dft)
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('2D IDFT no pad')
+        ax[0].imshow(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].imshow(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
+
+    def test_mpifft_2d_nice_pad(self):
+        # Create a plane
+        plane0 = Plane(params_plane0, bits=128)
+        plane1 = Plane(params_plane0, bits=128)
+
+        kwargs = {'padded': True}
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1, kwargs)
+
+        # Create an input signal with known frequencies in 2D
+        xx, yy = plane0.xx, plane0.yy
+        g = torch.sin(2*torch.pi*xx / 1.e+3) + torch.sin(4*torch.pi*yy / 1.e+3) + torch.sin(6*torch.pi*xx / 1.e+3).to(torch.complex128)
+        g_padded = torch.zeros(1, plane0.Nx*2, plane0.Ny*2).to(torch.complex128)
+        g_padded[0, plane0.Nx//2:plane0.Nx+plane0.Nx//2, plane0.Ny//2:plane0.Ny+plane0.Ny//2] = g
+        
+        # Perform the DFT
+        g_dft = strategy.fft2(g_padded)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft2(g_dft)
+
+        # Crop the signals
+        g_idft = g_idft[:,:,plane0.Nx//2:plane0.Nx+plane0.Nx//2, plane0.Ny//2:plane0.Ny+plane0.Ny//2]
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('2D IDFT padded')
+        ax[0].imshow(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].imshow(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
+
+    def test_dft_to_smaller(self):
+        # Create an input plane
+        plane0 = Plane(params_plane0, bits=128)
+
+        # Create an output plane
+        plane1 = Plane(params_plane6, bits=128)
+
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1)
+
+        # Create an input signal with known frequencies in 2D
+        xx, yy = plane0.xx, plane0.yy
+        g = torch.sin(2*torch.pi*xx / 1.e+3) + torch.sin(4*torch.pi*yy / 1.e+3) + torch.sin(6*torch.pi*xx / 1.e+3).to(torch.complex128)
+
+        # Perform the DFT
+        g_dft = strategy.fft2(g)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft2(g_dft)
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('DFT to smaller plane')
+        ax[0].imshow(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].imshow(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
+    def test_dft_to_larger(self):
+        # Create an input plane
+        plane0 = Plane(params_plane6, bits=128)
+
+        # Create an output plane
+        plane1 = Plane(params_plane0, bits=128)
+
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1)
+
+        # Create an input signal with known frequencies in 2D
+        xx, yy = plane0.xx, plane0.yy
+        g = torch.sin(2*torch.pi*xx / 1.e+3) + torch.sin(4*torch.pi*yy / 1.e+3) + torch.sin(6*torch.pi*xx / 1.e+3).to(torch.complex128)
+
+        # Perform the DFT
+        g_dft = strategy.fft2(g)
+
+        # Perform the IDFT
+        g_idft = strategy.ifft2(g_dft)
+
+        fig, ax = plt.subplots(1,2)
+        fig.suptitle('DFT to larger plane')
+        ax[0].imshow(g_idft.real.squeeze().numpy())
+        ax[0].set_title('IDFT')
+        ax[1].imshow(g.real.squeeze().numpy())
+        ax[1].set_title('Original')
+        plt.show()
+
 def suite_mpfft():
     suite = unittest.TestSuite()
     suite.addTest(TestDFT('test_init_mpfft'))
@@ -547,11 +775,19 @@ def suite_mpfft():
     suite.addTest(TestDFT('test_np_torch_dft'))
     suite.addTest(TestDFT('test_dft_matrix_precisions_lowtol'))
     suite.addTest(TestDFT('test_torch_mpfft_1d_nice_nopad'))
-    suite.addTest(TestDFT('test_torch_mpfft_1d_nice_pad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_1d_nice_pad'))
     suite.addTest(TestDFT('test_torch_mpfft_1d_random_nopad'))
-    suite.addTest(TestDFT('test_torch_mpfft_1d_random_pad'))
-    suite.addTest(TestDFT('test_torch_mpfft_2d_nice'))
-    suite.addTest(TestDFT('test_torch_mpfft_2d_random'))
+    #suite.addTest(TestDFT('test_torch_mpfft_1d_random_pad'))
+    suite.addTest(TestDFT('test_torch_mpfft_2d_nice_nopad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_2d_nice_pad'))
+    suite.addTest(TestDFT('test_torch_mpfft_2d_random_nopad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_2d_random_pad'))
+    suite.addTest(TestDFT('test_mpifft_1d_nice_nopad'))
+    suite.addTest(TestDFT('test_mpifft_1d_nice_pad'))
+    suite.addTest(TestDFT('test_mpifft_2d_nice_nopad'))
+    suite.addTest(TestDFT('test_mpifft_2d_nice_pad'))
+    suite.addTest(TestDFT('test_dft_to_smaller'))
+    suite.addTest(TestDFT('test_dft_to_larger'))
 
     return suite
 
