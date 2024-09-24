@@ -2,6 +2,10 @@ import torch
 from .strategy import PropagationStrategy
 
 class ASMStrategy(PropagationStrategy):
+    def __init__(self, input_plane, output_plane, fft_strategy, wavelength):
+        super().__init__(input_plane, output_plane, fft_strategy, wavelength)
+        self.transfer_function = self.get_transfer_function()
+
     def get_transfer_function(self):
         input_dx = self.input_plane.delta_x.real
         input_dy = self.input_plane.delta_y.real
@@ -44,11 +48,11 @@ class ASMStrategy(PropagationStrategy):
 
         return H
 
-    def propagate(self, input_wavefront, fft_strategy):
-        A = fft_strategy.fft(input_wavefront)
+    def propagate(self, input_wavefront):
+        A = self.fft_strategy.fft(input_wavefront)
         A = torch.fft.fftshift(A)
-        U = A * self.get_transfer_function()
+        U = A * self.transfer_function
         U = torch.fft.ifftshift(U, dim=(-1, -2))
-        U = fft_strategy.ifft(U)
+        U = self.fft_strategy.ifft(U)
         return U
 
