@@ -1,6 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+import pytorch_lightning as pl
 
-class PropagationStrategy(ABC):
+class PropagationStrategy(pl.LightningModule):
     def __init__(self, input_plane, output_plane, fft_strategy, wavelength):
         self.input_plane = input_plane
         self.output_plane = output_plane
