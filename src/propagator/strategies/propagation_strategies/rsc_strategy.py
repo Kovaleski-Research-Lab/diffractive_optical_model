@@ -1,5 +1,5 @@
 import torch
-from propagator.strategies.propagation_strategies.strategy import PropagationStrategy
+from src.propagator.strategies.propagation_strategies.strategy import PropagationStrategy
 
 class RSCStrategy(PropagationStrategy):
     def __init__(self, input_plane, output_plane, fft_strategy, wavelength):
