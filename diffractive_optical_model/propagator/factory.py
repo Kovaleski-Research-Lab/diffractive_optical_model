@@ -1,11 +1,11 @@
 import yaml
 import torch
 from loguru import logger
-from propagator.propagator import Propagator
-from propagator.strategies.fft_strategies.pytorch_strategy import PyTorchFFTStrategy
-from propagator.strategies.fft_strategies.mp_strategy import MPFFTStrategy
-from propagator.strategies.propagation_strategies.asm_strategy import ASMStrategy
-from propagator.strategies.propagation_strategies.rsc_strategy import RSCStrategy
+from diffractive_optical_model.propagator.propagator import Propagator
+from diffractive_optical_model.propagator.strategies.fft_strategies.pytorch_strategy import PyTorchFFTStrategy
+from diffractive_optical_model.propagator.strategies.fft_strategies.mp_strategy import MPFFTStrategy
+from diffractive_optical_model.propagator.strategies.propagation_strategies.asm_strategy import ASMStrategy
+from diffractive_optical_model.propagator.strategies.propagation_strategies.rsc_strategy import RSCStrategy
 
 class PropagatorFactory:
     def __call__(self, input_plane, output_plane, kwargs:dict={None:None}):

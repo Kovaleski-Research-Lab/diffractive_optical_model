@@ -1,7 +1,7 @@
 import torch
 import os
 import sys
-from propagator.strategies.fft_strategies.strategy import FFTStrategy
+from diffractive_optical_model.propagator.strategies.fft_strategies.strategy import FFTStrategy
 
 
 class MPFFTStrategy(FFTStrategy):

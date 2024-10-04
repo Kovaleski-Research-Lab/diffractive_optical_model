@@ -21,7 +21,7 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 #--------------------------------
 # Import: Custom Python Libraries
 #--------------------------------
-from diffraction_block.diffraction_block import DiffractionBlock
+from diffractive_optial_model.diffraction_block.diffraction_block import DiffractionBlock
 
 
 #-----------------------------------

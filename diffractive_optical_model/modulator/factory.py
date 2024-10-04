@@ -1,8 +1,8 @@
 import yaml
 from loguru import logger
-from modulator.modulator import Modulator
-from modulator.initializations.phase_initializations import initialize_phase
-from modulator.initializations.amplitude_initializations import initialize_amplitude
+from diffractive_optical_model.modulator.modulator import Modulator
+from diffractive_optical_model.modulator.initializations.phase_initializations import initialize_phase
+from diffractive_optical_model.modulator.initializations.amplitude_initializations import initialize_amplitude
 
 class ModulatorFactory:
     def __call__(self, plane, params:dict={None:None}):

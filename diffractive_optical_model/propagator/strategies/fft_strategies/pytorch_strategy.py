@@ -1,5 +1,5 @@
 import torch
-from propagator.strategies.fft_strategies.strategy import FFTStrategy
+from diffractive_optical_model.propagator.strategies.fft_strategies.strategy import FFTStrategy
 
 class PyTorchFFTStrategy(FFTStrategy):
     def __init__(self, input_plane, output_plane, kwargs:dict={None:None}):
