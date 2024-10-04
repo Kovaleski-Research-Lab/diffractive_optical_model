@@ -1,6 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+import pytorch_lightning as pl
 
-class FFTStrategy(ABC):
+class FFTStrategy(pl.LightningModule):
+    def __init__(self):
+        super().__init__()
+
     @abstractmethod
     def fft(self, data):
         pass

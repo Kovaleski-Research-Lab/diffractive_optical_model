@@ -3,12 +3,12 @@ import unittest
 import sys
 import yaml
 sys.path.append('../')
-sys.path.append('../../')
+sys.path.append('../../../')
 
-from modulator.initializations import phase_initializations, amplitude_initializations
-from modulator.factory import ModulatorFactory
-from modulator.modulator import Modulator
-from plane.plane import Plane
+from diffractive_optical_model.modulator.initializations import phase_initializations, amplitude_initializations
+from diffractive_optical_model.modulator.factory import ModulatorFactory
+from diffractive_optical_model.modulator.modulator import Modulator
+from diffractive_optical_model.plane.plane import Plane
 
 class TestModulator(unittest.TestCase):
     def setup(self):
@@ -19,7 +19,7 @@ class TestModulator(unittest.TestCase):
 
     def test_uniform_phase_initialization(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -29,7 +29,7 @@ class TestModulator(unittest.TestCase):
 
     def test_random_phase_initialization(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -39,7 +39,7 @@ class TestModulator(unittest.TestCase):
 
     def test_uniform_amplitude_initialization(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -49,7 +49,7 @@ class TestModulator(unittest.TestCase):
 
     def test_random_amplitude_initialization(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -136,7 +136,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_phase_only(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -157,7 +157,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_amplitude_only(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -177,7 +177,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_complex(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -198,7 +198,7 @@ class TestModulator(unittest.TestCase):
 
     def test_init_dtype_64(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -218,7 +218,7 @@ class TestModulator(unittest.TestCase):
 
     def test_init_dtype_128(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -238,7 +238,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_modulator_forward_64bit(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -268,7 +268,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_modulator_forward_128bit(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -298,7 +298,7 @@ class TestModulator(unittest.TestCase):
 
     def test_factory_uniform_init_withValue(self):
         # Load the config
-        config = yaml.safe_load(open('../../config.yaml', 'r'))
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
         # Get a plane config
         plane_config = config['planes'][0]
         # Initialize a plane
@@ -316,6 +316,28 @@ class TestModulator(unittest.TestCase):
         modulator = ModulatorFactory()(plane, params)
         assert torch.allclose(modulator.amplitude, torch.ones(plane.Nx, plane.Ny)*value)
         assert torch.allclose(modulator.phase, torch.ones(plane.Nx, plane.Ny)*value)
+
+    def test_cuda(self):
+        # Load the config
+        config = yaml.safe_load(open('../../../config.yaml', 'r'))
+        # Get a plane config
+        plane_config = config['planes'][0]
+        # Initialize a plane
+        plane = Plane(plane_config)
+        # Create some params for the factory
+        value = 3.0
+        params = {'gradients': 'complex', 
+                  'amplitude_init': 'uniform',
+                  'amplitude_value': value,
+                  'phase_init': 'uniform', 
+                  'phase_value': value,
+                  'focal_length': 'none',
+                  'wavelength': 520.e-6}
+        # Call the factory
+        modulator = ModulatorFactory()(plane, params)
+        modulator = modulator.to('cuda')
+        assert modulator.amplitude.is_cuda
+        assert modulator.phase.is_cuda
 
 def suite_basic():
     suite = unittest.TestSuite()
@@ -341,6 +363,7 @@ def suite_basic():
     suite.addTest(TestModulator('test_factory_modulator_forward_64bit'))
     suite.addTest(TestModulator('test_factory_modulator_forward_128bit'))
     suite.addTest(TestModulator('test_factory_uniform_init_withValue'))
+    suite.addTest(TestModulator('test_cuda'))
     return suite
 
 if __name__ == "__main__":

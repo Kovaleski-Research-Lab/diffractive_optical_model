@@ -3,6 +3,7 @@ from diffractive_optical_model.propagator.strategies.fft_strategies.strategy imp
 
 class PyTorchFFTStrategy(FFTStrategy):
     def __init__(self, input_plane, output_plane, kwargs:dict={None:None}):
+        super().__init__()
         self.input_plane = input_plane
         self.output_plane = output_plane
         self.padded = kwargs.get('padded', False)

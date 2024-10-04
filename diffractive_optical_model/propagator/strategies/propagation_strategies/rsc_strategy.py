@@ -3,11 +3,12 @@ from diffractive_optical_model.propagator.strategies.propagation_strategies.stra
 
 class RSCStrategy(PropagationStrategy):
     def __init__(self, input_plane, output_plane, fft_strategy, wavelength):
+        super().__init__(input_plane, output_plane, fft_strategy, wavelength)
         self.input_plane = input_plane
         self.output_plane = output_plane
         self.wavelength = wavelength
         self.fft_strategy = fft_strategy
-        self.transfer_function = self.get_transfer_function()
+        self.register_buffer('transfer_function', self.get_transfer_function())
     
     def __repr__(self):
         return f"RSCStrategy(input_plane={self.input_plane}, output_plane={self.output_plane}, fft_strategy={self.fft_strategy}, wavelength={self.wavelength})"

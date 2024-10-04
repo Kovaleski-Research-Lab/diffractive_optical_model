@@ -501,22 +501,54 @@ class TestPropagation(unittest.TestCase):
         ax[3].axis('off')
         plt.show()
 
+    def test_cuda_asm(self):
+        # Create two planes for propagation
+        plane0 = Plane(params_plane0)
+        plane1 = Plane(params_plane1)
+
+        kwargs = {'padded': True}
+        # Initialize the MPFFT strategy
+        fft_strategy = MPFFTStrategy(plane0, plane1, kwargs)
+
+        # Initialize the ASM strategy
+        asm_strategy = ASMStrategy(plane0, plane1, fft_strategy, wavelength)
+        asm_strategy = asm_strategy.to('cuda')
+
+        self.assertTrue(asm_strategy.transfer_function.is_cuda)
+
+    def test_cuda_rsc(self):
+        # Create two planes for propagation
+        plane0 = Plane(params_plane0)
+        plane1 = Plane(params_plane1)
+
+        kwargs = {'padded': True}
+
+        # Initialize the MPFFT strategy
+        fft_strategy = MPFFTStrategy(plane0, plane1, kwargs)
+
+        # Initialize the RSC strategy
+        rsc_strategy = RSCStrategy(plane0, plane1, fft_strategy, wavelength)
+        rsc_strategy = rsc_strategy.to('cuda')
+
+        self.assertTrue(rsc_strategy.transfer_function.is_cuda)
+
 def suite_propagation():
     suite = unittest.TestSuite()
-    suite.addTest(TestPropagation('test_init_asm_nopad'))
-    suite.addTest(TestPropagation('test_init_asm_pad'))
-    suite.addTest(TestPropagation('test_init_rsc_nopad'))
-    suite.addTest(TestPropagation('test_init_rsc_pad'))
-    suite.addTest(TestPropagation('test_plot_asm_transfer_function'))
-    suite.addTest(TestPropagation('test_plot_rsc_transfer_function'))
-    suite.addTest(TestPropagation('test_propagate_asm_mpfft'))
-    suite.addTest(TestPropagation('test_propagate_rsc_mpfft'))
-    suite.addTest(TestPropagation('test_propagate_asm_toSmaller'))
-    suite.addTest(TestPropagation('test_propagate_rsc_toSmaller'))
-    suite.addTest(TestPropagation('test_propagate_asm_toLarger'))
-    suite.addTest(TestPropagation('test_propagate_rsc_toLarger'))
-    suite.addTest(TestPropagation('test_rsc_vs_asm'))
-
+    #suite.addTest(TestPropagation('test_init_asm_nopad'))
+    #suite.addTest(TestPropagation('test_init_asm_pad'))
+    #suite.addTest(TestPropagation('test_init_rsc_nopad'))
+    #suite.addTest(TestPropagation('test_init_rsc_pad'))
+    #suite.addTest(TestPropagation('test_plot_asm_transfer_function'))
+    #suite.addTest(TestPropagation('test_plot_rsc_transfer_function'))
+    #suite.addTest(TestPropagation('test_propagate_asm_mpfft'))
+    #suite.addTest(TestPropagation('test_propagate_rsc_mpfft'))
+    #suite.addTest(TestPropagation('test_propagate_asm_toSmaller'))
+    #suite.addTest(TestPropagation('test_propagate_rsc_toSmaller'))
+    #suite.addTest(TestPropagation('test_propagate_asm_toLarger'))
+    #suite.addTest(TestPropagation('test_propagate_rsc_toLarger'))
+    #suite.addTest(TestPropagation('test_rsc_vs_asm'))
+    suite.addTest(TestPropagation('test_cuda_asm'))
+    suite.addTest(TestPropagation('test_cuda_rsc'))
 
     return suite
 

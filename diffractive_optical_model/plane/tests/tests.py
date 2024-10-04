@@ -8,7 +8,7 @@ import torch
 sys.path.append('../')
 
 # Create some plane paramters for the tests
-from plane.plane import Plane
+from diffractive_optical_model.plane.plane import Plane
 
 params_plane0 = {
     'name': 'plane0',
@@ -123,6 +123,7 @@ class TestPlane(unittest.TestCase):
         plane2 = plane0.scale(scale, inplace=False)
         plane0.scale(scale, inplace=True)
         self.assertTrue(plane0.is_same_spatial(plane2))
+
 
 def suite_plane():
     suite = unittest.TestSuite()

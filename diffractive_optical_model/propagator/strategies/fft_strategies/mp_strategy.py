@@ -6,6 +6,7 @@ from diffractive_optical_model.propagator.strategies.fft_strategies.strategy imp
 
 class MPFFTStrategy(FFTStrategy):
     def __init__(self, input_plane, output_plane, kwargs:dict={None:None}):
+        super().__init__()
         self.input_plane = input_plane
         self.output_plane = output_plane
 
@@ -67,8 +68,10 @@ class MPFFTStrategy(FFTStrategy):
             self.xx_input = self.input_plane.xx
             self.yy_input = self.input_plane.yy
 
-        self.dft_matrix_x = torch.fft.fftshift(torch.exp(-2j * torch.pi * torch.outer(self.fx, self.x_input))).unsqueeze(0)
-        self.dft_matrix_y = torch.fft.fftshift(torch.exp(-2j * torch.pi * torch.outer(self.fy, self.y_input))).unsqueeze(0)
+        dft_matrix_x = torch.fft.fftshift(torch.exp(-2j * torch.pi * torch.outer(self.fx, self.x_input))).unsqueeze(0)
+        dft_matrix_y = torch.fft.fftshift(torch.exp(-2j * torch.pi * torch.outer(self.fy, self.y_input))).unsqueeze(0)
+        self.register_buffer('dft_matrix_x', dft_matrix_x)
+        self.register_buffer('dft_matrix_y', dft_matrix_y)
 
     def create_idft_matrices(self):
         if self.padded:
@@ -86,8 +89,10 @@ class MPFFTStrategy(FFTStrategy):
             self.xx_output = self.output_plane.xx
             self.yy_output = self.output_plane.yy
 
-        self.idft_matrix_x = torch.fft.ifftshift(torch.exp(2j * torch.pi * torch.outer(self.x_output, self.fx))).unsqueeze(0)/self.M_output
-        self.idft_matrix_y = torch.fft.ifftshift(torch.exp(2j * torch.pi * torch.outer(self.y_output, self.fy))).unsqueeze(0)/self.N_output
+        idft_matrix_x = torch.fft.ifftshift(torch.exp(2j * torch.pi * torch.outer(self.x_output, self.fx))).unsqueeze(0)/self.M_output
+        idft_matrix_y = torch.fft.ifftshift(torch.exp(2j * torch.pi * torch.outer(self.y_output, self.fy))).unsqueeze(0)/self.N_output
+        self.register_buffer('idft_matrix_x', idft_matrix_x)
+        self.register_buffer('idft_matrix_y', idft_matrix_y)
 
     def fft(self, g):
         g_dft = self.dft_matrix_x[0] @ g.transpose(0, 1)

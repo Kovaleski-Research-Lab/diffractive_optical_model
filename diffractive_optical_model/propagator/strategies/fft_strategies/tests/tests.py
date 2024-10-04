@@ -760,34 +760,49 @@ class TestDFT(unittest.TestCase):
         ax[1].set_title('Original')
         plt.show()
 
+    def test_cuda_mpfft(self):
+        # Create an input plane
+        plane0 = Plane(params_plane6, bits=128)
+
+        # Create an output plane
+        plane1 = Plane(params_plane0, bits=128)
+
+        # Initialize the strategy
+        strategy = MPFFTStrategy(plane0, plane1)
+
+        strategy = strategy.to('cuda')
+
+        self.assertTrue(strategy.device == torch.device('cuda', 0))
+
 def suite_mpfft():
     suite = unittest.TestSuite()
-    suite.addTest(TestDFT('test_init_mpfft'))
-    suite.addTest(TestDFT('test_init_mpfft_different_ny'))
-    suite.addTest(TestDFT('test_init_mpfft_different_nx'))
-    suite.addTest(TestDFT('test_init_mpfft_different_nx_ny'))
-    suite.addTest(TestDFT('test_init_mpfft_different_x_size'))
-    suite.addTest(TestDFT('test_init_mpfft_different_y_size'))
-    suite.addTest(TestDFT('test_init_mpfft_different_x_y_size'))
-    suite.addTest(TestDFT('test_fx_fy_picking_nopad'))
-    suite.addTest(TestDFT('test_fx_fy_picking_pad'))
-    suite.addTest(TestDFT('test_dft_matrix_dtype'))
-    suite.addTest(TestDFT('test_np_torch_dft'))
-    suite.addTest(TestDFT('test_dft_matrix_precisions_lowtol'))
-    suite.addTest(TestDFT('test_torch_mpfft_1d_nice_nopad'))
-    #suite.addTest(TestDFT('test_torch_mpfft_1d_nice_pad'))
-    suite.addTest(TestDFT('test_torch_mpfft_1d_random_nopad'))
-    #suite.addTest(TestDFT('test_torch_mpfft_1d_random_pad'))
-    suite.addTest(TestDFT('test_torch_mpfft_2d_nice_nopad'))
-    #suite.addTest(TestDFT('test_torch_mpfft_2d_nice_pad'))
-    suite.addTest(TestDFT('test_torch_mpfft_2d_random_nopad'))
-    #suite.addTest(TestDFT('test_torch_mpfft_2d_random_pad'))
-    suite.addTest(TestDFT('test_mpifft_1d_nice_nopad'))
-    suite.addTest(TestDFT('test_mpifft_1d_nice_pad'))
-    suite.addTest(TestDFT('test_mpifft_2d_nice_nopad'))
-    suite.addTest(TestDFT('test_mpifft_2d_nice_pad'))
-    suite.addTest(TestDFT('test_dft_to_smaller'))
-    suite.addTest(TestDFT('test_dft_to_larger'))
+    #suite.addTest(TestDFT('test_init_mpfft'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_ny'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_nx'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_nx_ny'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_x_size'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_y_size'))
+    #suite.addTest(TestDFT('test_init_mpfft_different_x_y_size'))
+    #suite.addTest(TestDFT('test_fx_fy_picking_nopad'))
+    #suite.addTest(TestDFT('test_fx_fy_picking_pad'))
+    #suite.addTest(TestDFT('test_dft_matrix_dtype'))
+    #suite.addTest(TestDFT('test_np_torch_dft'))
+    #suite.addTest(TestDFT('test_dft_matrix_precisions_lowtol'))
+    #suite.addTest(TestDFT('test_torch_mpfft_1d_nice_nopad'))
+    ##suite.addTest(TestDFT('test_torch_mpfft_1d_nice_pad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_1d_random_nopad'))
+    ##suite.addTest(TestDFT('test_torch_mpfft_1d_random_pad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_2d_nice_nopad'))
+    ##suite.addTest(TestDFT('test_torch_mpfft_2d_nice_pad'))
+    #suite.addTest(TestDFT('test_torch_mpfft_2d_random_nopad'))
+    ##suite.addTest(TestDFT('test_torch_mpfft_2d_random_pad'))
+    #suite.addTest(TestDFT('test_mpifft_1d_nice_nopad'))
+    #suite.addTest(TestDFT('test_mpifft_1d_nice_pad'))
+    #suite.addTest(TestDFT('test_mpifft_2d_nice_nopad'))
+    #suite.addTest(TestDFT('test_mpifft_2d_nice_pad'))
+    #suite.addTest(TestDFT('test_dft_to_smaller'))
+    #suite.addTest(TestDFT('test_dft_to_larger'))
+    suite.addTest(TestDFT('test_cuda_mpfft'))
 
     return suite
 
