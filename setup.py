@@ -4,7 +4,7 @@ def read_requirements():
     with open('requirements.txt') as req:
         content = req.read()
         requirements = content.split('\n')
-    return requirements 
+    return list(requirements)
 
 setup(
     name='diffractive_optical_model',
