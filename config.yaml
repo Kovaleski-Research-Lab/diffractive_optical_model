@@ -38,105 +38,60 @@ paths: &id001
   path_checkpoint: 'my_models/'
   path_checkpoint_don: 'my_models/'
 
-#--------------------------------
-#       Classifier Params
-#--------------------------------
-#Classifier
-num_classes: 10
-freeze_backbone: False
-num_layers_classifier: 1
-name_classifier: 'resnet18'
-optimizer_classifier: 'ADAM'
-learning_rate_classifier: 0.001
-transfer_learn_classifier: True
-load_checkpoint_classifier: False
-objective_function_classifier: 'cross_entropy'
-
-#Cooperative
-load_checkpoint_cooperative: False
 
 #--------------------------------
-#       DON Params
+#       DOM params
 #--------------------------------
-# Model / learning
-optimizer_don: 'ADAM'
-learning_rate_don: 3.e-1
-transfer_learn_don: False
-load_checkpoint_don: False
-objective_function_don: 'mse'
+wavelength: &wavelength 520.e-6
 
-# Data
-Nxp: 1920
-Nyp: 1080
-Lxp: 15.36e-3
-Lyp: 8.96e-3
-  #Lyp: 8.96e-3
-
-#--------------------------------
-#       CITL Params
-#--------------------------------
-load_checkpoint_citl: False
-learning_rate_citl: 3.e-1
-
-#--------------------------------
-#       Datamodule Params
-#--------------------------------
-#flat_calibration, MNIST
-which: 'MNIST'
-n_cpus: 2
-resize_row: 1080
-resize_col: 1080
-
-wavefront_transform:
-    phase_initialization_strategy: 0
-
-# Start of new parameters
 planes:
   0: &idpl00
-    name: 'plane0'
+    name: 'input_plane'
     center: [0,0,0]
-    size: [15.36e+3, 8.96e+3]
+    size: [15.36, 8.64]
     normal: [0,0,1]
-    Nx: 1920
-    Ny: 1080
+    Nx: &input_x 1920
+    Ny: &input_y 1080
   1: &idpl01
-    name: 'plane1'
-    center: [0,0,10.e+4]
-    size: [15.36e+3, 8.96e+3]
+    name: 'lens_plane'
+    center: [0,0,762]
+    size: [15.36, 8.64]
     normal: [0,0,1]
     Nx: 1920
     Ny: 1080
   2: &idpl02
-    name: 'plane2'
-    center: [0,0,20.e+4]
-    size: [15.36e+3, 8.96e+3]
+    name: 'output_plane'
+    center: [0,0, 1219.2]
+    size: [9.6768, 5.4432]
     normal: [0,0,1]
     Nx: 1920
     Ny: 1080
 
 modulators:
   0: &idm00
-    amplitude_init : 'uniform'
-    phase_init : 'uniform'
     gradients : 'none'
-    phase_pattern : None
-    amplitude_pattern : None
-    kwargs:
-      phase_value: 0.0
-      amplitude_value: 1.0
-  1: &idm01
     amplitude_init : 'uniform'
+    amplitude_value: 1.0
+    pinhole_size: 'none'
+    phase_init : 'uniform'
+    phase_value: 0.0
+    focal_length: 'none'
+    wavelength: *wavelength 
+  1: &idm01
+    gradients : 'none'
+    amplitude_init : 'uniform'
+    amplitude_value : 1.0
+    pinhole_size: 0.0
     phase_init : 'lens_phase'
-    gradients : 'phase_only'
-    phase_pattern : 'lens'
-    amplitude_pattern : None
-    kwargs:
-      focal_length: 5.e+4
-      wavelength: 1.55
+    phase_value : 0.0
+    focal_length: 285.75
+    wavelength: *wavelength
 
 propagator: &idprop
-  prop_type: 
-  wavelength: 1.55
+  wavelength: *wavelength
+  fft_type: 'auto'
+  prop_type: 'rsc'
+  padded : True
 
 diffraction_blocks:
   0:
@@ -150,10 +105,22 @@ diffraction_blocks:
     modulator_params : *idm01
     propagator_params : *idprop
 
-
-don:
+dom_training:
   optimizer: 'ADAM'
   learning_rate: 3.e-1
   transfer_learn: False
   load_checkpoint: False
   objective_function: 'mse'
+
+#--------------------------------
+#       Datamodule Params
+#--------------------------------
+which: 'MNIST'
+n_cpus: 2
+resize_row: 1080
+resize_col: 1080
+Nxp : *input_x
+Nyp : *input_y
+
+wavefront_transform:
+    phase_initialization_strategy: 0
