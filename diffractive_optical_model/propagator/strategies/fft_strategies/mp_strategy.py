@@ -1,7 +1,7 @@
 import torch
 import os
 import sys
-from src.propagator.strategies.fft_strategies.strategy import FFTStrategy
+from propagator.strategies.fft_strategies.strategy import FFTStrategy
 
 
 class MPFFTStrategy(FFTStrategy):

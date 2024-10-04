@@ -1,8 +1,8 @@
 import yaml
 from loguru import logger
-from src.modulator.modulator import Modulator
-from src.modulator.initializations.phase_initializations import initialize_phase
-from src.modulator.initializations.amplitude_initializations import initialize_amplitude
+from modulator.modulator import Modulator
+from modulator.initializations.phase_initializations import initialize_phase
+from modulator.initializations.amplitude_initializations import initialize_amplitude
 
 class ModulatorFactory:
     def __call__(self, plane, params:dict={None:None}):

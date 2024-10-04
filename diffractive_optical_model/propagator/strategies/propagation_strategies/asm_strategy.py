@@ -1,5 +1,5 @@
 import torch
-from src.propagator.strategies.propagation_strategies.strategy import PropagationStrategy
+from propagator.strategies.propagation_strategies.strategy import PropagationStrategy
 
 class ASMStrategy(PropagationStrategy):
     def __init__(self, input_plane, output_plane, fft_strategy, wavelength):

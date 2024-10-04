@@ -8,10 +8,10 @@ import sys
 # Custom library imports
 import os
 
-from src.plane.plane import Plane
-from src.modulator.factory import ModulatorFactory
-from src.propagator.factory import PropagatorFactory
-from src.utils.spatial_resample import spatial_resample
+from plane.plane import Plane
+from modulator.factory import ModulatorFactory
+from propagator.factory import PropagatorFactory
+from utils.spatial_resample import spatial_resample
 
 class DiffractionBlock(pl.LightningModule):
     def __init__(self, params):

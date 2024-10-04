@@ -1,11 +1,11 @@
 import yaml
 import torch
 from loguru import logger
-from src.propagator.propagator import Propagator
-from src.propagator.strategies.fft_strategies.pytorch_strategy import PyTorchFFTStrategy
-from src.propagator.strategies.fft_strategies.mp_strategy import MPFFTStrategy
-from src.propagator.strategies.propagation_strategies.asm_strategy import ASMStrategy
-from src.propagator.strategies.propagation_strategies.rsc_strategy import RSCStrategy
+from propagator.propagator import Propagator
+from propagator.strategies.fft_strategies.pytorch_strategy import PyTorchFFTStrategy
+from propagator.strategies.fft_strategies.mp_strategy import MPFFTStrategy
+from propagator.strategies.propagation_strategies.asm_strategy import ASMStrategy
+from propagator.strategies.propagation_strategies.rsc_strategy import RSCStrategy
 
 class PropagatorFactory:
     def __call__(self, input_plane, output_plane, kwargs:dict={None:None}):

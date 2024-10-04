@@ -21,7 +21,7 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 #--------------------------------
 # Import: Custom Python Libraries
 #--------------------------------
-from src.diffraction_block.diffraction_block import DiffractionBlock
+from diffraction_block.diffraction_block import DiffractionBlock
 
 
 #-----------------------------------
@@ -164,12 +164,12 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     import numpy as np
-    from src.datamodule.datamodule import select_data
+    from datamodule.datamodule import select_data
     import yaml
     
-    params = yaml.load(open("config.yaml"), Loader=yaml.FullLoader)
+    params = yaml.load(open("../config.yaml"), Loader=yaml.FullLoader)
     paths = params['paths']
-    path_root = os.getcwd()
+    path_root = '../'
     paths['path_root'] = path_root
     params['paths'] = paths 
     dm = select_data(params)

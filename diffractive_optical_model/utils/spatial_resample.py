@@ -4,7 +4,7 @@
 # The simulated image will be from a sensor that is smaller and that has a different pixel size.
 
 import torch
-from src.plane.plane import Plane
+from plane.plane import Plane
 
 def crop_or_pad(obj, plane1):
     # Assumes we get an object that has the same discretization as plane1
