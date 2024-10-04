@@ -13,5 +13,6 @@ setup(
     author='Marshall B. Lindsay',
     author_email='mblgh6@umsystem.edu',
     packages=find_packages(),
+    install_requires=read_requirements(),
 )
 

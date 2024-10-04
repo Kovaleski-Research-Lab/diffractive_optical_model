@@ -1,5 +1,4 @@
 # Standard imports
-from numpy import who
 import torch
 from loguru import logger
 import pytorch_lightning as pl
