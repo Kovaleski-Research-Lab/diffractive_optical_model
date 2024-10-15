@@ -44,17 +44,17 @@ class Plane():
             self.real_type_torch = torch.float64
             self.real_type_numpy = np.float64
         elif bits == 64:
-            self.center_x = self.center_x.to(torch.float32)
-            self.center_y = self.center_y.to(torch.float32)
-            self.center_z = self.center_z.to(torch.float32)
-            self.Lx = self.Lx.to(torch.float32)
-            self.Ly = self.Ly.to(torch.float32)
-            self.Nx = self.Nx.to(torch.int32)
-            self.Ny = self.Ny.to(torch.int32)
+            self.center_x = self.center_x.to(torch.float64)
+            self.center_y = self.center_y.to(torch.float64)
+            self.center_z = self.center_z.to(torch.float64)
+            self.Lx = self.Lx.to(torch.float64)
+            self.Ly = self.Ly.to(torch.float64)
+            self.Nx = self.Nx.to(torch.int64)
+            self.Ny = self.Ny.to(torch.int64)
             self.complex_type_torch = torch.complex64
             self.complex_type_numpy = np.complex64
-            self.real_type_torch = torch.float32
-            self.real_type_numpy = np.float32
+            self.real_type_torch = torch.float64
+            self.real_type_numpy = np.float64
         else:
             logger.error("Invalid number of bits.")
             raise ValueError("Invalid number of bits.")

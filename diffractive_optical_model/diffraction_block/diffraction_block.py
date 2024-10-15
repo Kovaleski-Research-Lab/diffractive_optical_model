@@ -21,8 +21,8 @@ class DiffractionBlock(pl.LightningModule):
         self.modulator_params = params['modulator_params']
         self.propagator_params = params['propagator_params']
 
-        self.input_plane = Plane(self.input_plane_params)
-        self.output_plane = Plane(self.output_plane_params)
+        self.input_plane = Plane(self.input_plane_params, bits=128)
+        self.output_plane = Plane(self.output_plane_params, bits=128)
 
         self.modulator = ModulatorFactory()(self.input_plane, self.modulator_params)
         self.propagator = PropagatorFactory()(self.input_plane, self.output_plane, self.propagator_params)

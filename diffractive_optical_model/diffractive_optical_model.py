@@ -110,7 +110,7 @@ class DOM(LightningModule):
     #--------------------------------
 
     def calculate_auxiliary_outputs(self, output_wavefronts) -> dict:
-        amplitudes = output_wavefronts.abs()
+        amplitudes = output_wavefronts.abs().double()
         normalized_amplitudes = amplitudes / torch.max(amplitudes)
         images = (amplitudes**2).squeeze()
         normalized_images = images / torch.max(images)
