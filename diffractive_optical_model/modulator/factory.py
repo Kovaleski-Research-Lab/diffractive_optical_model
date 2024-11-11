@@ -1,4 +1,5 @@
 import yaml
+import torch
 from loguru import logger
 from diffractive_optical_model.modulator.modulator import Modulator
 from diffractive_optical_model.modulator.initializations.phase_initializations import initialize_phase
@@ -7,9 +8,14 @@ from diffractive_optical_model.modulator.initializations.amplitude_initializatio
 class ModulatorFactory:
     def __call__(self, plane, params:dict={None:None}):
         self.gradients = params.get('gradients', 'none')
-        amplitude, phase = self.initialize_amplitude_phase(plane, params)
+        initial_amplitude, initial_phase = self.initialize_amplitude_phase(plane, params)
+        initial_amplitude.requires_grad = False
+        initial_phase.requires_grad = False
+
+        amplitude = torch.zeros_like(initial_amplitude)
+        phase = torch.zeros_like(initial_phase)
         amplitude, phase = self.initialize_gradients(amplitude, phase)
-        return Modulator(amplitude, phase)
+        return Modulator(initial_amplitude, initial_phase, amplitude, phase)
 
     def initialize_amplitude_phase(self, plane, params):
         amplitude = initialize_amplitude(plane, params)
