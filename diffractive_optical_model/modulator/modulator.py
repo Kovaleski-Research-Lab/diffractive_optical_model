@@ -12,7 +12,7 @@ class Modulator(pl.LightningModule):
     def forward(self, input_wavefront):
         # Combine the initial and optimizeable parameters into the final parameters
         amplitude = self.initial_amplitude + torch.nn.functional.tanh(self.optimizeable_amplitude)
-        phase = self.initial_phase + (torch.nn.functional.tanh(self.optimizeable_phase) * torch.pi)
+        phase = self.initial_phase + self.optimizeable_phase
         modulator = amplitude * torch.exp(1j * phase)
         return input_wavefront * modulator
 
