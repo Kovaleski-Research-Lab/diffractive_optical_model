@@ -32,7 +32,7 @@ class Modulator(pl.LightningModule):
             self.initial_amplitude = torch.nn.Parameter(amplitude, requires_grad=False)
 
     def get_phase(self, with_grad=True):
-        phase = self.initial_phase + (torch.nn.functional.sigmoid(self.optimizeable_phase) * 2 * torch.pi)
+        phase = self.initial_phase + (torch.nn.functional.tanh(self.optimizeable_phase) * torch.pi)
         if with_grad:
             return phase
         else:
