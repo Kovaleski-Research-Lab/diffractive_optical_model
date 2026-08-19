@@ -1,0 +1,74 @@
+name: CPU wheel CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheel-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "build>=1.2,<2"
+          python -m build
+
+      - name: Install wheel in an isolated CPU environment
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-env"
+          VENV_PYTHON="$RUNNER_TEMP/wheel-env/bin/python"
+          "$VENV_PYTHON" -m pip install --upgrade pip
+          "$VENV_PYTHON" -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.1,<3"
+          WHEEL="$(python -c 'import pathlib; print(next(pathlib.Path("dist").glob("*.whl")).resolve())')"
+          "$VENV_PYTHON" -m pip install "${WHEEL}[test]"
+
+      - name: Test installed wheel away from source
+        run: |
+          cp -R tests "$RUNNER_TEMP/wheel-tests"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-env/bin/python" -m pytest wheel-tests
+          "$RUNNER_TEMP/wheel-env/bin/dom-train" --help
+          "$RUNNER_TEMP/wheel-env/bin/dom-train" --version
+
+      - name: Smoke-test provenance manifest
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-env/bin/python" - <<'PY'
+          import json
+          from pathlib import Path
+          from diffractive_optical_model.cli import write_run_manifest
+
+          destination = Path("manifest-smoke.json")
+          write_run_manifest(
+              {
+                  "seed": [True, 1337],
+                  "paths": {"path_root": str(Path.cwd())},
+              },
+              destination,
+              command=["dom-train", "--config", "example.yaml"],
+              config_source="example.yaml",
+          )
+          manifest = json.loads(destination.read_text(encoding="utf-8"))
+          assert manifest["resolved_config"]["seed"] == [True, 1337]
+          assert manifest["hardware"]["cuda_available"] is False
+          assert manifest["packages"]["diffractive-optical-model"]
+          PY

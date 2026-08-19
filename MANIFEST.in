@@ -1,1 +1,6 @@
-include config.yaml
+include CITATION.cff
+include LICENSE
+include README.md
+include requirements*.txt
+recursive-include diffractive_optical_model config*.yaml
+global-exclude __pycache__ *.py[cod] .DS_Store

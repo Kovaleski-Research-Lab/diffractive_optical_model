@@ -1,7 +1,6 @@
-# Small CPU-runnable same-grid training example.
+# Packaged small CPU-runnable same-grid training example.
 seed: [True, 1337]
 model_id: 'mnist_same_grid'
-# bits: 64 -> complex64 fields; 128 -> complex128. Coordinates are always float64.
 bits: 64
 
 batch_size: 8
@@ -73,8 +72,8 @@ which: 'MNIST'
 n_cpus: 0
 resize_row: 28
 resize_col: 28
-Nxp : *input_x
-Nyp : *input_y
+Nxp: *input_x
+Nyp: *input_y
 
 wavefront_transform:
   phase_initialization_strategy: 0

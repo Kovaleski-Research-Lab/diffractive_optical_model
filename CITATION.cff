@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software with permission, please cite it using this metadata."
+title: "Diffractive Optical Model"
+type: software
+version: 0.0.1
+authors:
+  - family-names: "Lindsay"
+    given-names: "Marshall B."
+license: "LicenseRef-Proprietary"

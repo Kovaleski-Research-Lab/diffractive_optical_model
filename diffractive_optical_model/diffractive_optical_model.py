@@ -1,204 +1,141 @@
-#--------------------------------
-# Import: Basic Python Libraries
-#--------------------------------
+import math
 
-import os
-import sys
 import torch
 from loguru import logger
-import torchmetrics
-from IPython import embed
-
-#--------------------------------
-# Import: PyTorch Libraries
-#--------------------------------
-
 from pytorch_lightning import LightningModule
-from torchmetrics.functional import mean_squared_error as mse
-from torchmetrics.functional import peak_signal_noise_ratio as psnr
-from torchmetrics.functional import structural_similarity_index_measure as ssim
+from torchmetrics.functional.image import peak_signal_noise_ratio as psnr
+from torchmetrics.functional.image import structural_similarity_index_measure as ssim
 
-#--------------------------------
-# Import: Custom Python Libraries
-#--------------------------------
 from diffractive_optical_model.diffraction_block.diffraction_block import DiffractionBlock
 
 
-#-----------------------------------
-# Model: Diffractive optical model
-#-----------------------------------
+_OPTIMIZERS = {
+    'ADAM': torch.optim.Adam,
+    'ADAMW': torch.optim.AdamW,
+    'SGD': torch.optim.SGD,
+}
+
 
 class DOM(LightningModule):
-    def __init__(self, params:dict) -> None:
+    def __init__(self, params: dict) -> None:
         super().__init__()
         self.params = params
         self.training_params = params['dom_training']
+        self.data_range = float(self.training_params.get('data_range', 1.0))
+        if not math.isfinite(self.data_range) or self.data_range <= 0:
+            raise ValueError("dom_training.data_range must be finite and strictly positive.")
         self.select_objective()
         self.create_layers()
         self.learning_rate = self.training_params['learning_rate']
         self.save_hyperparameters()
 
-    #--------------------------------
-    # Create: Optimizer Function
-    #--------------------------------
-   
     def configure_optimizers(self):
-        logger.debug("DON | setting optimizer to ADAM")
-        optimizer = torch.optim.Adam(self.layers.parameters(), lr = self.learning_rate)
-        return optimizer
+        name = str(self.training_params.get('optimizer', 'ADAM')).upper()
+        if name not in _OPTIMIZERS:
+            raise ValueError(
+                "Optimizer {} is not supported; use one of {}".format(name, list(_OPTIMIZERS))
+            )
+        logger.debug("DOM | setting optimizer to {}".format(name))
+        trainable_parameters = [parameter for parameter in self.parameters() if parameter.requires_grad]
+        if not trainable_parameters:
+            raise ValueError(
+                "DOM has no trainable parameters. Set at least one modulator gradients mode "
+                "to 'phase_only', 'amplitude_only', or 'complex'."
+            )
+        return _OPTIMIZERS[name](trainable_parameters, lr=self.learning_rate)
 
-    #--------------------------------
-    # Select: Objective Function
-    #--------------------------------
-   
     def select_objective(self):
-        objective_function = self.training_params['objective_function']
+        objective_function = str(self.training_params['objective_function']).lower()
+        self.objective_name = objective_function
         if objective_function == "mse":
             self.similarity_metric = False
-            self.objective_function = torchmetrics.functional.mean_squared_error
-            logger.debug("DON | setting objective function to {}".format(objective_function))
+            self.objective_function = torch.nn.functional.mse_loss
         elif objective_function == "psnr":
             self.similarity_metric = True
-            self.objective_function = torchmetrics.functional.peak_signal_noise_ratio
-            logger.debug("DON | setting objective function to {}".format(objective_function))
+            self.objective_function = psnr
         elif objective_function == "ssim":
             self.similarity_metric = True
-            self.objective_function = torchmetrics.functional.structural_similarity_index_measure
-            logger.debug("DON | setting objective function to {}".format(objective_function))
+            self.objective_function = ssim
         else:
-            logger.error("Objective function : {} not supported".format(self.training_params['objective_function']))
-            exit()
-
-    #--------------------------------
-    # Create: Network layers
-    #--------------------------------
+            raise ValueError("Objective function : {} not supported".format(objective_function))
+        logger.debug("DOM | setting objective function to {}".format(objective_function))
 
     def create_layers(self):
         self.layers = torch.nn.ModuleList()
+        bits = self.params.get('bits', 64)
         for block in self.params['diffraction_blocks']:
-            block_params = self.params['diffraction_blocks'][block]
+            block_params = dict(self.params['diffraction_blocks'][block])
+            block_params.setdefault('bits', bits)
             self.layers.append(DiffractionBlock(block_params))
 
-    #--------------------------------
-    # Initialize: DOM Metrics
-    #--------------------------------
-    
     def run_dom_metrics(self, dom_outputs, targets):
-        wavefronts = don_outputs['output_wavefronts']
-        amplitudes = don_outputs['amplitudes']
-        normalized_amplitudes = don_outputs['normalized_amplitudes']
-        images = don_outputs['images']
-        normalized_images = don_outputs['normalized_images']
+        images = dom_outputs['images'].detach()
+        target_images = self._target_intensity(targets).detach()
+        mse_vals = torch.nn.functional.mse_loss(images, target_images)
+        psnr_vals = psnr(images, target_images, data_range=self.data_range)
+        ssim_vals = ssim(
+            images, target_images, data_range=self.data_range
+        ).detach()
+        return {'mse': mse_vals.cpu(), 'psnr': psnr_vals.cpu(), 'ssim': ssim_vals.cpu()}
 
-        mse_vals = mse(images.detach(), targets.detach())
-        psnr_vals = psnr(images.detach(), targets.detach())
-        ssim_vals = ssim(images.detach(), targets.detach()).detach() #type: ignore
-        return {'mse' : mse_vals.cpu(), 'psnr' : psnr_vals.cpu(), 'ssim' : ssim_vals.cpu()}
-
-    #--------------------------------
-    # Initialize: Objective Function
-    #--------------------------------
- 
     def objective(self, output, target):
-        if self.similarity_metric:
-            return 1 / (1 + self.objective_function(preds = output, target = target))
-        else:
-            return self.objective_function(preds = output, target = target)
+        target = self._target_intensity(target)
+        if output.is_complex():
+            output = output.abs() ** 2
+        if self.objective_name == "mse":
+            return torch.nn.functional.mse_loss(input=output, target=target)
+        if self.objective_name == "psnr":
+            error = torch.nn.functional.mse_loss(input=output, target=target)
+            epsilon = torch.finfo(error.dtype).eps
+            stable_psnr = 10 * torch.log10(
+                output.new_tensor(self.data_range ** 2) / error.clamp_min(epsilon)
+            )
+            return -stable_psnr
+        if self.objective_name == "ssim":
+            similarity = ssim(
+                preds=output, target=target, data_range=self.data_range
+            )
+            return 1 - similarity
+        raise RuntimeError("DOM objective was not initialized correctly.")
 
-    #--------------------------------
-    # Create: Auxiliary Outputs
-    #--------------------------------
+    @staticmethod
+    def _target_intensity(target):
+        return target.abs() ** 2 if target.is_complex() else target
 
     def calculate_auxiliary_outputs(self, output_wavefronts) -> dict:
-        amplitudes = output_wavefronts.abs().double()
-        normalized_amplitudes = amplitudes / torch.max(amplitudes)
-        images = (amplitudes**2).squeeze()
-        normalized_images = images / torch.max(images)
-        return {'output_wavefronts' : output_wavefronts, 'amplitudes' : amplitudes,
-                'normalized_amplitudes' : normalized_amplitudes, 'images' : images, 
-                'normalized_images' : normalized_images}
+        amplitudes = output_wavefronts.abs()
+        amax = amplitudes.amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
+        normalized_amplitudes = amplitudes / amax
+        images = amplitudes ** 2
+        imax = images.amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
+        normalized_images = images / imax
+        return {
+            'output_wavefronts': output_wavefronts,
+            'amplitudes': amplitudes,
+            'normalized_amplitudes': normalized_amplitudes,
+            'images': images,
+            'normalized_images': normalized_images,
+        }
 
-    #--------------------------------
-    # Create: Forward Pass
-    #--------------------------------
-   
-    def forward(self, u:torch.Tensor):
-        # Iterate through the layers
-        for i,layer in enumerate(self.layers):
+    def forward(self, u: torch.Tensor):
+        for layer in self.layers:
             u = layer(u)
-        u = torch.rot90(u, 2, [-2,-1])
         return u
- 
-    #--------------------------------
-    # Create: Shared Step Train/Valid
-    #--------------------------------
-      
+
     def shared_step(self, batch, batch_idx):
         samples, targets = batch
         output_wavefronts = self.forward(samples)
-        # Get auxiliary outputs
         outputs = self.calculate_auxiliary_outputs(output_wavefronts)
         return outputs, targets
-  
-    #--------------------------------
-    # Create: Training Step
-    #--------------------------------
-             
+
     def training_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
-        loss = self.objective(outputs['images'], batch[1].squeeze().abs()**2)
-        self.log("train_loss", loss, prog_bar = True) #type: ignore
-        return { 'loss' : loss, 'outputs' : outputs, 'target' : targets.detach() }
-   
-    #--------------------------------
-    # Create: Validation Step
-    #--------------------------------
-                
+        loss = self.objective(outputs['images'], targets)
+        self.log("train_loss", loss, prog_bar=True)
+        return {'loss': loss, 'outputs': outputs, 'target': targets.detach()}
+
     def validation_step(self, batch, batch_idx):
         outputs, targets = self.shared_step(batch, batch_idx)
-        loss = self.objective(outputs['images'], batch[1].squeeze().abs()**2)
-        self.log("val_loss", loss, prog_bar = True) #type: ignore
-        return { 'loss' : loss, 'output' : outputs, 'target' : targets.detach() }
-
-if __name__ == "__main__":
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from datamodule.datamodule import select_data
-    import yaml
-    
-    params = yaml.load(open("../config.yaml"), Loader=yaml.FullLoader)
-    paths = params['paths']
-    path_root = '../'
-    paths['path_root'] = path_root
-    params['paths'] = paths 
-    dm = select_data(params)
-    #Initialize the data module
-    dm.prepare_data()
-    dm.setup(stage="fit")
-
-    # Get some data
-    batch = next(iter(dm.train_dataloader()))
-
-    model = DOM(params)
-    
-
-    samples, targets = batch
-    outputs = model(samples)
-
-    samples = torch.rot90(samples, 1, [-2,-1])
-    outputs = torch.rot90(outputs, 1, [-2,-1])
-
-    fig, axs = plt.subplots(1,3)
-
-    sample_image = samples[0].squeeze().abs().numpy()
-    output_image = outputs[0].squeeze().abs().numpy()**2
-    output_image = output_image / np.max(output_image)
-    difference_image = np.abs(sample_image - output_image)
-
-    axs[0].imshow(sample_image)
-    axs[1].imshow(output_image)
-    axs[2].imshow(difference_image)
-
-    plt.show()
-
+        loss = self.objective(outputs['images'], targets)
+        self.log("val_loss", loss, prog_bar=True)
+        return {'loss': loss, 'output': outputs, 'target': targets.detach()}

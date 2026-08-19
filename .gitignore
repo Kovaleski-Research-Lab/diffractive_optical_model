@@ -1,3 +1,35 @@
+# Python bytecode and environments
 __pycache__/
-results/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Tests, coverage, and tooling
+.pytest_cache/
+pytest-cache-files-*/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Notebooks and editor/OS files
 .ipynb_checkpoints/
+.DS_Store
+.vscode/
+
+# Downloaded data and generated research outputs
+data/
+results/
+checkpoints/
+lightning_logs/
+wandb/
+*.ckpt
+run_manifest.json
+params.yaml

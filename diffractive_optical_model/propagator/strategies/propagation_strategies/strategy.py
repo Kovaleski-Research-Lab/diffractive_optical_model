@@ -1,7 +1,8 @@
 from abc import abstractmethod
-import pytorch_lightning as pl
+import torch.nn as nn
 
-class PropagationStrategy(pl.LightningModule):
+
+class PropagationStrategy(nn.Module):
     def __init__(self, input_plane, output_plane, fft_strategy, wavelength):
         super().__init__()
         self.input_plane = input_plane
@@ -16,4 +17,3 @@ class PropagationStrategy(pl.LightningModule):
     @abstractmethod
     def propagate(self, input_wavefront):
         pass
-

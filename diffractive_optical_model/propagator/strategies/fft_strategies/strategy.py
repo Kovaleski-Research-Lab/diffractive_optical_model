@@ -1,7 +1,15 @@
 from abc import abstractmethod
-import pytorch_lightning as pl
+import torch.nn as nn
 
-class FFTStrategy(pl.LightningModule):
+
+class FFTStrategy(nn.Module):
+    """FFT backend. Spatial arrays are centered (origin at N//2).
+
+    ``fft2`` / ``ifft2`` own the origin convention:
+    ifftshift -> transform last two dims -> fftshift on the inverse.
+    Frequencies from ``fftfreq`` (origin at index 0) are used for multiply.
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -20,4 +28,3 @@ class FFTStrategy(pl.LightningModule):
     @abstractmethod
     def ifft2(self, data):
         pass
-

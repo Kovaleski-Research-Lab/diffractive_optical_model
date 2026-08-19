@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=77,<82", "wheel>=0.42,<1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffractive-optical-model"
+version = "0.0.1"
+description = "Scalar diffractive optical propagation models for scientific research."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+authors = [
+  { name = "Marshall B. Lindsay", email = "mblgh6@umsystem.edu" },
+]
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+  "loguru>=0.7,<1",
+  "numpy>=1.24,<3",
+  "torch>=2.1,<3",
+]
+
+[project.optional-dependencies]
+core = []
+train = [
+  "PyYAML>=6.0,<7",
+  "pytorch-lightning>=2.1,<3",
+  "torchmetrics>=1.2,<2",
+  "torchvision>=0.16,<1",
+]
+test = [
+  "PyYAML>=6.0,<7",
+  "pytorch-lightning>=2.1,<3",
+  "pytest>=7.4,<9",
+  "torchmetrics>=1.2,<2",
+  "torchvision>=0.16,<1",
+]
+notebook = [
+  "jupyterlab>=4,<5",
+  "matplotlib>=3.7,<4",
+  "PyYAML>=6.0,<7",
+  "scienceplots>=2.1,<3",
+  "scipy>=1.10,<2",
+  "torchvision>=0.16,<1",
+  "tqdm>=4.66,<5",
+]
+
+[project.scripts]
+dom-train = "diffractive_optical_model.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["train"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["diffractive_optical_model*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+diffractive_optical_model = ["config*.yaml", "config*.yml"]
